@@ -7,7 +7,7 @@ Real-time Italian→English audio translator using faster-whisper and Argos. Cap
 - 🎙️ **Live audio capture** from any source (speakers/Bluetooth/USB)
 - 🧠 **5 Whisper models** (tiny → large-v3) with configurable accuracy/latency
 - 🌐 **Italian→English translation** using Argos Translate (free, unlimited)
-- ⚡ **Optimized latency**: 1-10s depending on selected model
+- ⚡ **Adjustable speed**: --fast, normal, --slow modes
 - 🆓 **100% free and offline** - no API keys, no quotas
 - 🖥️ **Interactive menu** or direct command-line launch
 
@@ -45,7 +45,7 @@ The script will automatically install:
 - `argostranslate` Python package
 - Italian→English translation model
 
-**Note**: First run may take 2-3 minutes to download dependencies.
+**Note**: First run may take 2-3 minutes to download dependencies (~800MB for large model if selected).
 
 ## Usage
 
@@ -66,7 +66,7 @@ Available models:
   2) base   - Fast           (85% accuracy, ~3s, 1.5GB RAM)
   3) small  - Balanced       (90% accuracy, ~4s, 2GB RAM)
   4) medium - Recommended    (95% accuracy, ~5s, 5GB RAM) [DEFAULT]
-  5) large  - Maximum        (98% accuracy, ~10s, 10GB RAM) ⚠️  High fan
+  5) large  - Maximum        (98% accuracy, ~8s, 10GB RAM) ⚠️  High fan
 
 Your choice (1-5 or Enter for default):
 ```
@@ -75,14 +75,17 @@ Your choice (1-5 or Enter for default):
 
 ### Direct Launch
 ```bash
-# Launch with medium model (recommended)
-./live-voice-translate.sh medium
+# Normal speed (default)
+./live-voice-translate.sh medium         # Medium, 5s latency
+./live-voice-translate.sh large          # Large, 8s latency
 
-# Launch with large model (best quality)
-./live-voice-translate.sh large
+# Fast mode (shorter segments, faster response)
+./live-voice-translate.sh medium --fast  # Medium, 4s latency
+./live-voice-translate.sh large --fast   # Large, 6s latency
 
-# Launch with small model (fast)
-./live-voice-translate.sh small
+# Slow mode (longer segments, complete sentences)
+./live-voice-translate.sh medium --slow  # Medium, 6s latency
+./live-voice-translate.sh large --slow   # Large, 11s latency
 ```
 
 ### Create Aliases (Optional)
@@ -92,10 +95,11 @@ Add convenient shortcuts to your `~/.bashrc`:
 cat >> ~/.bashrc << 'EOF'
 
 # Live voice translation aliases
-alias live-translate='~/live-voice-translate.sh'           # Interactive menu
-alias live-translate-fast='~/live-voice-translate.sh small'   # Ultra fast (4s)
-alias live-translate-balanced='~/live-voice-translate.sh medium'  # Recommended (5s)
-alias live-translate-pro='~/live-voice-translate.sh large'    # Best quality (10s)
+alias live-translate='~/live-voice-translate.sh'                        # Interactive menu
+alias live-translate-fast='~/live-voice-translate.sh medium --fast'    # 4s latency
+alias live-translate-balanced='~/live-voice-translate.sh medium'       # 5s latency (default)
+alias live-translate-quality='~/live-voice-translate.sh large'         # 8s latency
+alias live-translate-max='~/live-voice-translate.sh large --slow'      # 11s, best quality
 EOF
 
 source ~/.bashrc
@@ -104,9 +108,10 @@ source ~/.bashrc
 Now you can use:
 ```bash
 live-translate              # Interactive menu
-live-translate-balanced     # Medium model (recommended)
-live-translate-pro          # Large model (critical meetings)
-live-translate-fast         # Small model (quick tests)
+live-translate-fast         # Medium + fast mode (4s)
+live-translate-balanced     # Medium, normal (5s)
+live-translate-quality      # Large, normal (8s)
+live-translate-max          # Large + slow mode (11s, complete sentences)
 ```
 
 ## How It Works
@@ -114,7 +119,7 @@ live-translate-fast         # Small model (quick tests)
 1. **Capture audio**: Detects active audio stream (speakers/Bluetooth/headset)
 2. **Transcribe**: Uses faster-whisper to transcribe Italian speech to text
 3. **Translate**: Uses Argos Translate to convert Italian text to English
-4. **Display**: Shows English translation in real-time with ~4-10s latency
+4. **Display**: Shows English translation in real-time
 
 ## Use Cases
 
@@ -125,13 +130,30 @@ live-translate-fast         # Small model (quick tests)
 
 ## Model Comparison
 
+### Standard Mode (Normal)
+
 | Model      | Accuracy | Latency | RAM   | CPU  | Use Case              |
 |------------|----------|---------|-------|------|-----------------------|
 | **tiny**   | 60%      | ~1s     | 1GB   | 30%  | Quick tests           |
 | **base**   | 85%      | ~3s     | 1.5GB | 40%  | Fast casual meetings  |
 | **small**  | 90%      | ~4s     | 2GB   | 50%  | Balanced              |
 | **medium** | 95%      | ~5s     | 5GB   | 60%  | **Recommended daily** |
-| **large**  | 98%      | ~8s    | 10GB  | 80%  | Critical meetings     |
+| **large**  | 98%      | ~8s     | 10GB  | 80%  | Critical meetings     |
+
+### Speed Modes
+
+| Model | --fast | Normal | --slow |
+|-------|--------|--------|--------|
+| **tiny** | 0.5s | 1s | 1.5s |
+| **base** | 2s | 3s | 4s |
+| **small** | 3s | 4s | 5s |
+| **medium** | 4s | 5s | 6s |
+| **large** | 6s | 8s | **11s** |
+
+**When to use each mode:**
+- **--fast**: Quick reactions, casual conversations (may cut long sentences)
+- **Normal**: Daily meetings, good balance
+- **--slow**: Formal presentations, complete sentences guaranteed
 
 ## Troubleshooting
 
@@ -170,20 +192,6 @@ ls -lh /tmp/test.raw
 ```
 
 If file is empty (0 bytes) → wrong stream index or no audio playing.
-
-**Force specific stream** (advanced):
-
-If automatic detection fails, you can manually set the stream index. First, identify your stream:
-```bash
-pactl list short sources | grep monitor
-```
-
-Then modify the script temporarily or use this test command:
-```bash
-# Example with stream 88 (Bluetooth headset)
-timeout 5s parec --monitor-stream=88 --format=s16le --rate=16000 --channels=1 > /tmp/test.raw
-ls -lh /tmp/test.raw
-```
 
 ### Script doesn't show menu
 
@@ -231,13 +239,13 @@ You should see translations within 5-10 seconds.
 - **Transcription**: [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (optimized Whisper implementation)
 - **Translation**: [Argos Translate](https://github.com/argosopentech/argos-translate) (offline, LibreTranslate engine)
 - **Audio capture**: PipeWire/PulseAudio monitor streams
-- **Segments**: 3-6 seconds audio chunks depending on model
+- **Segments**: Configurable 2-7 seconds audio chunks
 - **Processing**: CPU-only (no GPU required)
 
 ## Limitations
 
 - **Translation quality**: Argos is good but not perfect (~85-90% quality). For professional quality, consider DeepL API (paid).
-- **Latency**: Real-time = 1-10s delay depending on model
+- **Latency**: Real-time = 0.5-11s delay depending on model and speed mode
 - **Language**: Currently optimized for Italian→English only
 - **CPU usage**: Large model requires significant CPU (80%+)
 

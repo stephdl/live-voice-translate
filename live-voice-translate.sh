@@ -59,7 +59,7 @@ get_model_config() {
         base) echo "SEGMENT=128000 BEAM=3 PRECISION=85% LATENCY=3s" ;;
         small) echo "SEGMENT=160000 BEAM=3 PRECISION=90% LATENCY=4s" ;;
         medium) echo "SEGMENT=160000 BEAM=4 PRECISION=95% LATENCY=5s" ;;
-        large-v3) echo "SEGMENT=192000 BEAM=5 PRECISION=98% LATENCY=10s" ;;
+        large-v3) echo "SEGMENT=160000 BEAM=5 PRECISION=98% LATENCY=8S" ;;
     esac
 }
 

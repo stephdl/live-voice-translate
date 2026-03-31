@@ -1,5 +1,5 @@
 #!/bin/bash
-# jitsi-translate.sh - IT→EN real-time translation for Jitsi
+# live-voice-translate.sh - IT→EN real-time translation for Jitsi
 
 set -euo pipefail
 
@@ -24,7 +24,7 @@ show_menu() {
     echo "  4) medium - Recommended    (95% accuracy, ~5s, 5GB RAM) [DEFAULT]" >&2
     
     if [ "$RAM_TOTAL" -ge 12 ]; then
-        echo "  5) large  - Maximum        (98% accuracy, ~10s, 10GB RAM) ⚠️  High fan" >&2
+        echo "  5) large  - Maximum        (98% accuracy, ~8s, 10GB RAM) ⚠️  High fan" >&2
     else
         echo "  5) large  - Maximum        [Insufficient RAM: ${RAM_TOTAL}GB]" >&2
     fi
@@ -54,50 +54,144 @@ show_menu() {
 
 get_model_config() {
     local model=$1
+    local mode=$2  # "fast", "normal", or "slow"
+    
     case "$model" in
-        tiny) echo "SEGMENT=96000 BEAM=1 PRECISION=60% LATENCY=1s" ;;
-        base) echo "SEGMENT=128000 BEAM=3 PRECISION=85% LATENCY=3s" ;;
-        small) echo "SEGMENT=160000 BEAM=3 PRECISION=90% LATENCY=4s" ;;
-        medium) echo "SEGMENT=160000 BEAM=4 PRECISION=95% LATENCY=5s" ;;
-        large-v3) echo "SEGMENT=160000 BEAM=5 PRECISION=98% LATENCY=8S" ;;
+        tiny)
+            case "$mode" in
+                fast) echo "SEGMENT=64000 BEAM=1 PRECISION=60% LATENCY=0.5s" ;;
+                slow) echo "SEGMENT=128000 BEAM=1 PRECISION=60% LATENCY=1.5s" ;;
+                *) echo "SEGMENT=96000 BEAM=1 PRECISION=60% LATENCY=1s" ;;
+            esac
+            ;;
+        base)
+            case "$mode" in
+                fast) echo "SEGMENT=96000 BEAM=3 PRECISION=85% LATENCY=2s" ;;
+                slow) echo "SEGMENT=160000 BEAM=3 PRECISION=85% LATENCY=4s" ;;
+                *) echo "SEGMENT=128000 BEAM=3 PRECISION=85% LATENCY=3s" ;;
+            esac
+            ;;
+        small)
+            case "$mode" in
+                fast) echo "SEGMENT=128000 BEAM=3 PRECISION=90% LATENCY=3s" ;;
+                slow) echo "SEGMENT=192000 BEAM=3 PRECISION=90% LATENCY=5s" ;;
+                *) echo "SEGMENT=160000 BEAM=3 PRECISION=90% LATENCY=4s" ;;
+            esac
+            ;;
+        medium)
+            case "$mode" in
+                fast) echo "SEGMENT=128000 BEAM=4 PRECISION=95% LATENCY=4s" ;;
+                slow) echo "SEGMENT=192000 BEAM=4 PRECISION=95% LATENCY=6s" ;;
+                *) echo "SEGMENT=160000 BEAM=4 PRECISION=95% LATENCY=5s" ;;
+            esac
+            ;;
+        large-v3)
+            case "$mode" in
+                fast) echo "SEGMENT=128000 BEAM=5 PRECISION=98% LATENCY=6s" ;;
+                slow) echo "SEGMENT=224000 BEAM=5 PRECISION=98% LATENCY=11s" ;;
+                *) echo "SEGMENT=160000 BEAM=5 PRECISION=98% LATENCY=8s" ;;
+            esac
+            ;;
     esac
+}
+
+install_deps() {
+    echo "Installing dependencies..." >&2
+    pip install faster-whisper argostranslate --break-system-packages
+    
+    if ! command -v ffmpeg &> /dev/null; then
+        sudo dnf install -y ffmpeg
+    fi
+    
+    echo "Downloading IT→EN translation model..." >&2
+    python3 << 'PYEOF'
+import argostranslate.package
+argostranslate.package.update_package_index()
+available_packages = argostranslate.package.get_available_packages()
+package_to_install = next(
+    filter(lambda x: x.from_code == "it" and x.to_code == "en", available_packages)
+)
+argostranslate.package.install_from_path(package_to_install.download())
+print("✅ IT→EN model installed")
+PYEOF
+    
+    echo "✅ Installation complete" >&2
 }
 
 main() {
     local MODEL=""
+    local SPEED_MODE="normal"
     
-    # Parse command line arguments
-    case "${1:-}" in
-        tiny|base|small|medium)
-            MODEL="$1"
-            ;;
-        large)
-            MODEL="large-v3"
-            ;;
-        --help|-h)
-            echo "Usage: $0 [tiny|base|small|medium|large]"
-            echo ""
-            echo "Examples:"
-            echo "  $0              # Interactive menu"
-            echo "  $0 medium       # Launch directly with medium"
-            echo "  $0 large        # Launch directly with large"
-            exit 0
-            ;;
-        "")
-            # No argument = interactive menu
-            MODEL=$(show_menu)
-            ;;
-        *)
-            echo "Error: Invalid argument '$1'" >&2
-            echo "Use: $0 --help" >&2
-            exit 1
-            ;;
-    esac
+    # Check for dependencies
+    if ! python3 -c "import faster_whisper" 2>/dev/null; then
+        echo "faster-whisper not installed" >&2
+        install_deps
+    fi
+    
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --fast|-f)
+                SPEED_MODE="fast"
+                shift
+                ;;
+            --slow|-s)
+                SPEED_MODE="slow"
+                shift
+                ;;
+            --install)
+                install_deps
+                exit 0
+                ;;
+            --help|-h)
+                echo "Usage: $0 [MODEL] [OPTIONS]"
+                echo ""
+                echo "Models:"
+                echo "  tiny, base, small, medium, large"
+                echo ""
+                echo "Options:"
+                echo "  --fast, -f     Shorter segments (faster, may cut sentences)"
+                echo "  --slow, -s     Longer segments (slower, complete sentences)"
+                echo "  --install      Install dependencies"
+                echo "  --help, -h     Show this help"
+                echo ""
+                echo "Examples:"
+                echo "  $0                    # Interactive menu, normal speed"
+                echo "  $0 medium             # Medium model, normal (~5s)"
+                echo "  $0 medium --fast      # Medium model, fast (~4s)"
+                echo "  $0 medium --slow      # Medium model, slow (~6s)"
+                echo "  $0 large --slow       # Large model, slow (~11s, best quality)"
+                exit 0
+                ;;
+            tiny|base|small|medium)
+                MODEL="$1"
+                shift
+                ;;
+            large)
+                MODEL="large-v3"
+                shift
+                ;;
+            "")
+                shift
+                ;;
+            *)
+                echo "Error: Invalid argument '$1'" >&2
+                echo "Use: $0 --help" >&2
+                exit 1
+                ;;
+        esac
+    done
+    
+    # If no model specified, show menu
+    if [ -z "$MODEL" ]; then
+        MODEL=$(show_menu)
+    fi
     
     # Get model configuration
-    CONFIG=$(get_model_config "$MODEL")
+    CONFIG=$(get_model_config "$MODEL" "$SPEED_MODE")
     eval "$CONFIG"
     
+    # Display configuration
     echo ""
     echo "═══════════════════════════════════════════"
     echo "   Configuration"
@@ -106,6 +200,11 @@ main() {
     echo "  Model      : $MODEL"
     echo "  Accuracy   : $PRECISION"
     echo "  Latency    : ~$LATENCY"
+    if [ "$SPEED_MODE" = "fast" ]; then
+        echo "  Mode       : Fast (shorter segments)"
+    elif [ "$SPEED_MODE" = "slow" ]; then
+        echo "  Mode       : Slow (longer segments, complete sentences)"
+    fi
     echo ""
     
     # Detect active audio stream

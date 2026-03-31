@@ -131,7 +131,7 @@ live-translate-fast         # Small model (quick tests)
 | **base**   | 85%      | ~3s     | 1.5GB | 40%  | Fast casual meetings  |
 | **small**  | 90%      | ~4s     | 2GB   | 50%  | Balanced              |
 | **medium** | 95%      | ~5s     | 5GB   | 60%  | **Recommended daily** |
-| **large**  | 98%      | ~10s    | 10GB  | 80%  | Critical meetings     |
+| **large**  | 98%      | ~8s    | 10GB  | 80%  | Critical meetings     |
 
 ## Troubleshooting
 

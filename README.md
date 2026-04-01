@@ -1,6 +1,6 @@
 # live-voice-translate
 
-Real-time Italian→English audio translator in your terminal  using faster-whisper and Argos. Capture from any source (Jitsi/YouTube/meetings), choose accuracy vs latency (5 models), 100% free and offline.
+Real-time Italian→English audio translator using faster-whisper and Argos. Capture from any source (Jitsi/YouTube/meetings), choose accuracy vs latency (5 models), 100% free and offline.
 
 ## Features
 
@@ -8,6 +8,7 @@ Real-time Italian→English audio translator in your terminal  using faster-whis
 - 🧠 **5 Whisper models** (tiny → large-v3) with configurable accuracy/latency
 - 🌐 **Italian→English translation** using Argos Translate (free, unlimited)
 - ⚡ **Adjustable speed**: --fast, normal, --slow modes
+- 🕐 **Timestamps** on every translation (terminal + saved files)
 - 💾 **Save transcripts** to Markdown files for later review
 - 🆓 **100% free and offline** - no API keys, no quotas
 - 🖥️ **Interactive menu** or direct command-line launch
@@ -66,8 +67,8 @@ Available models:
   1) tiny   - Ultra fast     (60% accuracy, ~1s, 1GB RAM)
   2) base   - Fast           (85% accuracy, ~3s, 1.5GB RAM)
   3) small  - Balanced       (90% accuracy, ~4s, 2GB RAM)
-  4) medium - Recommended    (95% accuracy, ~5s, 5GB RAM) [DEFAULT]
-  5) large  - Maximum        (98% accuracy, ~8s, 10GB RAM) ⚠️  High fan
+  4) medium - Recommended    (95% accuracy, ~6s, 5GB RAM) [DEFAULT]
+  5) large  - Maximum        (98% accuracy, ~11s, 10GB RAM) ⚠️  High fan
 
 Your choice (1-5 or Enter for default):
 ```
@@ -77,20 +78,20 @@ Your choice (1-5 or Enter for default):
 ### Direct Launch
 ```bash
 # Normal speed (default)
-./live-voice-translate.sh medium         # Medium, 5s latency
-./live-voice-translate.sh large          # Large, 8s latency
+./live-voice-translate.sh medium         # Medium, 6s latency
+./live-voice-translate.sh large          # Large, 11s latency
 
 # Fast mode (shorter segments, faster response)
 ./live-voice-translate.sh medium --fast  # Medium, 4s latency
 ./live-voice-translate.sh large --fast   # Large, 6s latency
 
 # Slow mode (longer segments, complete sentences)
-./live-voice-translate.sh medium --slow  # Medium, 6s latency
-./live-voice-translate.sh large --slow   # Large, 11s latency
+./live-voice-translate.sh medium --slow  # Medium, 9s latency
+./live-voice-translate.sh large --slow   # Large, 18s latency
 
 # Save transcript to file
 ./live-voice-translate.sh medium --save                    # Auto-generated filename
-./live-voice-translate.sh large --save meeting-notes.md    # Custom filename
+./live-voice-translate.sh large --slow --save meeting.md   # Custom filename
 ./live-voice-translate.sh medium --fast --save             # Fast mode + save
 ```
 
@@ -101,12 +102,12 @@ Add convenient shortcuts to your `~/.bashrc`:
 cat >> ~/.bashrc << 'EOF'
 
 # Live voice translation aliases
-alias live-translate='~/live-voice-translate.sh'                        # Interactive menu
-alias live-translate-fast='~/live-voice-translate.sh medium --fast'    # 4s latency
-alias live-translate-balanced='~/live-voice-translate.sh medium'       # 5s latency (default)
-alias live-translate-save='~/live-voice-translate.sh medium --save'    # With transcript
-alias live-translate-quality='~/live-voice-translate.sh large'         # 8s latency
-alias live-translate-max='~/live-voice-translate.sh large --slow'      # 11s, best quality
+alias live-translate='~/live-voice-translate.sh'                          # Interactive menu
+alias live-translate-fast='~/live-voice-translate.sh medium --fast'      # 4s latency
+alias live-translate-balanced='~/live-voice-translate.sh medium'         # 6s latency (default)
+alias live-translate-save='~/live-voice-translate.sh medium --slow --save'  # 9s + transcript
+alias live-translate-quality='~/live-voice-translate.sh large'           # 11s latency
+alias live-translate-max='~/live-voice-translate.sh large --slow --save' # 18s + transcript
 EOF
 
 source ~/.bashrc
@@ -116,10 +117,22 @@ Now you can use:
 ```bash
 live-translate              # Interactive menu
 live-translate-fast         # Medium + fast mode (4s)
-live-translate-balanced     # Medium, normal (5s)
-live-translate-save         # Medium + save transcript
-live-translate-quality      # Large, normal (8s)
-live-translate-max          # Large + slow mode (11s, complete sentences)
+live-translate-balanced     # Medium, normal (6s)
+live-translate-save         # Medium slow + save transcript (9s)
+live-translate-quality      # Large, normal (11s)
+live-translate-max          # Large + slow mode + save (18s)
+```
+
+## Terminal Output
+
+Translations appear in real-time with timestamps:
+```
+[11:36:39] ▶ saying happened this and immediately after it made me
+             feel so this makes the story more human
+[11:37:03] ▶ Using these small signals makes the speech much
+             clearer.
+[11:37:28] ▶ A phrase like "I think so because I have experienced
+             this experience" is more than enough.
 ```
 
 ## Saved Transcripts
@@ -130,29 +143,29 @@ When using `--save`, transcripts are saved in **Markdown format** for easy readi
 ```markdown
 # Live Voice Translation
 
-**Date:** 2026-04-01 22:30:15  
+**Date:** 2026-04-01 11:36:12  
 **Model:** large-v3  
-**Mode:** normal  
+**Mode:** slow  
 
 ---
 
-**[22:30:18]**
+**[11:36:39]**
 
-🇮🇹 *Dobbiamo aggiornare il firewall di NethSecurity.*
+🇮🇹 *dire è successo questo e subito dopo mi ha fatto sentire così questo rende il racconto più umano*
 
-🇬🇧 We need to update the NethSecurity firewall.
-
----
-
-**[22:30:23]**
-
-🇮🇹 *Il container Podman non si avvia correttamente.*
-
-🇬🇧 The Podman container does not start correctly.
+🇬🇧 saying happened this and immediately after it made me feel so this makes the story more human
 
 ---
 
-**End of session:** 2026-04-01 22:35:42
+**[11:37:03]**
+
+🇮🇹 *Usare questi piccoli segnali rende il discorso molto più chiaro.*
+
+🇬🇧 Using these small signals makes the speech much clearer.
+
+---
+
+**End of session:** 2026-04-01 11:40:05
 ```
 
 ### Working with Saved Files
@@ -172,7 +185,7 @@ pandoc meeting-notes.md -o meeting-report.pdf
 1. **Capture audio**: Detects active audio stream (speakers/Bluetooth/headset)
 2. **Transcribe**: Uses faster-whisper to transcribe Italian speech to text
 3. **Translate**: Uses Argos Translate to convert Italian text to English
-4. **Display**: Shows English translation in real-time
+4. **Display**: Shows English translation in real-time with timestamps
 5. **Save (optional)**: Records both Italian and English to Markdown file
 
 ## Use Cases
@@ -192,23 +205,33 @@ pandoc meeting-notes.md -o meeting-report.pdf
 | **tiny**   | 60%      | ~1s     | 1GB   | 30%  | Quick tests           |
 | **base**   | 85%      | ~3s     | 1.5GB | 40%  | Fast casual meetings  |
 | **small**  | 90%      | ~4s     | 2GB   | 50%  | Balanced              |
-| **medium** | 95%      | ~5s     | 5GB   | 60%  | **Recommended daily** |
-| **large**  | 98%      | ~8s     | 10GB  | 80%  | Critical meetings     |
+| **medium** | 95%      | ~6s     | 5GB   | 60%  | **Recommended daily** |
+| **large**  | 98%      | ~11s    | 10GB  | 80%  | Critical meetings     |
 
 ### Speed Modes
 
 | Model | --fast | Normal | --slow |
 |-------|--------|--------|--------|
-| **tiny** | 0.5s | 1s | 1.5s |
-| **base** | 2s | 3s | 4s |
-| **small** | 3s | 4s | 5s |
-| **medium** | 4s | 5s | 6s |
-| **large** | 6s | 8s | **11s** |
+| **tiny** | 0.5s (2s audio) | 1s (3s audio) | 1.5s (4s audio) |
+| **base** | 2s (3s audio) | 3s (4s audio) | 4s (5s audio) |
+| **small** | 3s (4s audio) | 4s (5s audio) | 5s (6s audio) |
+| **medium** | 4s (4s audio) | 6s (6s audio) | 9s (8s audio) |
+| **large** | 6s (4s audio) | 11s (8s audio) | **18s (15s audio)** |
 
 **When to use each mode:**
-- **--fast**: Quick reactions, casual conversations (may cut long sentences)
-- **Normal**: Daily meetings, good balance
-- **--slow**: Formal presentations, complete sentences guaranteed
+- **--fast**: Quick reactions, casual conversations (may cut sentences)
+- **Normal**: Daily meetings, good balance (recommended)
+- **--slow**: Video recordings, presentations, complete sentences guaranteed (best for --save)
+
+### Recommendations by Use Case
+
+| Use Case | Recommended Command | Why |
+|----------|---------------------|-----|
+| **Live Jitsi meeting** | `./live-voice-translate.sh medium` | 6s latency, 95% accuracy, good balance |
+| **YouTube video** | `./live-voice-translate.sh large --slow --save` | 18s OK for video, best quality, save transcript |
+| **Quick test** | `./live-voice-translate.sh small --fast` | 3s latency, fast feedback |
+| **Important meeting** | `./live-voice-translate.sh large --save` | 11s latency, 98% accuracy, transcript saved |
+| **Podcast listening** | `./live-voice-translate.sh large --slow` | Best quality, complete sentences |
 
 ## Privacy & Security
 
@@ -223,7 +246,7 @@ pandoc meeting-notes.md -o meeting-report.pdf
 
 | What | Where | When Deleted |
 |------|-------|--------------|
-| Audio (5 seconds) | `/tmp/audio_chunk.wav` | When you press Ctrl+C |
+| Audio (5-15 seconds) | `/tmp/audio_chunk.wav` | When you press Ctrl+C |
 | Whisper models | `~/.cache/huggingface/` | Never (reused each time) |
 | Translation model | `~/.local/share/argos-translate/` | Never (reused each time) |
 | Transcripts | Your specified file (if `--save` used) | Manual deletion |
@@ -327,7 +350,7 @@ top -p $(pgrep -f live-voice-translate)
 1. **Is audio playing?** Open YouTube or Jitsi
 2. **Is the audio stream active?** Check with `pactl list short sources | grep RUNNING`
 3. **Is there actual speech?** Music-only won't produce translations
-4. **Wait 5-10 seconds**: First segment takes time to process
+4. **Wait 6-18 seconds**: First segment takes time to process
 
 **Test with Italian YouTube video**:
 ```bash
@@ -338,32 +361,65 @@ firefox "https://www.youtube.com/results?search_query=italian+news"
 ./live-voice-translate.sh medium
 ```
 
-You should see translations within 5-10 seconds.
+You should see translations within 6-11 seconds.
 
 ## Technical Details
 
 - **Transcription**: [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (optimized Whisper implementation)
 - **Translation**: [Argos Translate](https://github.com/argosopentech/argos-translate) (offline, LibreTranslate engine)
 - **Audio capture**: PipeWire/PulseAudio monitor streams
-- **Segments**: Configurable 2-7 seconds audio chunks
+- **Segments**: Configurable 2-15 seconds audio chunks
 - **Processing**: CPU-only (no GPU required)
 - **Output format**: Markdown with timestamps
 
 ## Limitations
 
-- **Translation quality**: Argos is good but not perfect (~85-90% quality). For professional quality, consider DeepL API (paid).
-- **Latency**: Real-time = 0.5-11s delay depending on model and speed mode
-- **Language**: Currently optimized for Italian→English only
+### Translation Quality
+
+- **Argos Translate**: Good but not perfect (~85-90% quality)
+- For professional quality, consider DeepL API (paid)
+- Italian idiomatic expressions may not translate perfectly
+
+### Latency
+
+- **Real-time = delay**: 0.5-18s depending on model and speed mode
+- Not suitable for simultaneous interpretation (use professional interpreters)
+- Best for understanding content, not instant responses
+
+### Transcript Quality
+
+Due to real-time processing, transcripts may contain:
+- **Sentence fragments**: Audio is processed in 4-15 second chunks
+- **Split sentences**: Long Italian sentences may be broken across timestamps
+- **Context gaps**: Some connections between segments may be lost
+
+**Recommendations**:
+- Use `--slow` mode for better sentence completion (15s segments)
+- Accept that real-time = incomplete sentences sometimes
+- For perfect transcripts, use offline tools on complete audio files
+
+**This is a real-time tool, not a professional transcription service.**
+
+### Language Support
+
+- Currently optimized for Italian→English only
+- Other language pairs possible but not tested
+- Translation model is specific to IT→EN
+
+### Hardware
+
 - **CPU usage**: Large model requires significant CPU (80%+)
 - **GPU**: Only NVIDIA CUDA supported (AMD ROCm not supported due to complexity)
+- **RAM**: Minimum requirements must be met for stable operation
 
 ## Future Improvements
 
 - [ ] Add DeepL API support (optional, paid)
-- [ ] Support more language pairs
+- [ ] Support more language pairs (ES→EN, FR→EN, DE→EN)
 - [ ] NVIDIA GPU acceleration (CUDA)
 - [ ] GUI interface
 - [ ] Export to different formats (JSON, TXT, PDF)
+- [ ] Voice Activity Detection tuning for better segmentation
 
 ## Contributing
 

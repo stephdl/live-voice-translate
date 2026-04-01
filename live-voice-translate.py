@@ -440,11 +440,16 @@ class TranscriptWriter:
             self.file_handle.write("---\n\n")
             self.file_handle.flush()
     
-    def close(self):
-        """Close file with end timestamp"""
+    def close(self, duration_str=None, segment_count=None, word_count=None):
+        """Close file with end timestamp and optional session statistics"""
         if self.file_handle:
             end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            self.file_handle.write(f"\n**End of session:** {end_time}\n")
+            self.file_handle.write(f"\n---\n\n")
+            self.file_handle.write(f"**End of session:** {end_time}  \n")
+            if duration_str is not None:
+                self.file_handle.write(f"**Duration:** {duration_str}  \n")
+                self.file_handle.write(f"**Segments:** {segment_count}  \n")
+                self.file_handle.write(f"**Words:** {word_count}  \n")
             self.file_handle.close()
             print(f"\n💾 Transcript saved to: {self.filepath}")
 
@@ -475,6 +480,11 @@ class LiveTranslator:
         # Audio threading
         self.audio_queue = queue.Queue(maxsize=2)
         self.capture_thread = None
+
+        # Session statistics
+        self.session_start = datetime.now()
+        self.segment_count = 0
+        self.word_count = 0
         
     def setup(self):
         """Initialize Whisper model, translation, and keyboard"""
@@ -622,6 +632,10 @@ class LiveTranslator:
 
         print(output, flush=True)
 
+        # Update session stats
+        self.segment_count += 1
+        self.word_count += len(text_target.split())
+
         # Save to file if enabled
         self.writer.write(timestamp, text_it, text_target)
     
@@ -656,17 +670,38 @@ class LiveTranslator:
         finally:
             # Signal threads to stop
             self.should_quit = True
-            
+
             # Cleanup keyboard
             if self.keyboard_controller:
                 self.keyboard_controller.cleanup()
-            
+
             # Wait for capture thread to finish
             if self.capture_thread and self.capture_thread.is_alive():
                 self.capture_thread.join(timeout=2.0)
-            
-            # Close file
-            self.writer.close()
+
+            # Print session statistics
+            duration = datetime.now() - self.session_start
+            total_seconds = int(duration.total_seconds())
+            hours, remainder = divmod(total_seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+            print()
+            print("═══════════════════════════════════════════")
+            print("   Session Statistics")
+            print("═══════════════════════════════════════════")
+            print(f"  Duration   : {duration_str}")
+            print(f"  Segments   : {self.segment_count}")
+            print(f"  Words      : {self.word_count}")
+            print("═══════════════════════════════════════════")
+            print()
+
+            # Close file (with session stats if saving)
+            self.writer.close(
+                duration_str=duration_str,
+                segment_count=self.segment_count,
+                word_count=self.word_count,
+            )
 
 
 def show_menu():

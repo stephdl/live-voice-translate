@@ -445,7 +445,7 @@ Potential future features:
 - [ ] Speaker diarization
 - [ ] Web dashboard
 - [ ] Export formats (PDF, DOCX, SRT subtitles)
-- [ ] Support for other language pairs
+- [x] Support for other language pairs (French, Spanish, German via double translation)
 
 ## Acknowledgments
 

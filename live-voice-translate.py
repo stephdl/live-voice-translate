@@ -297,7 +297,8 @@ class KeyboardController:
             # Fichier existe déjà, juste sauvegarder
             timestamp = datetime.now().strftime('%H:%M:%S')
             print(f"\n💾 [{timestamp}] Saving transcript...", flush=True)
-            self.translator.writer.file_handle.flush()
+            if self.translator.writer.file_handle:
+                self.translator.writer.file_handle.flush()
             print(f"✅ Saved to: {self.translator.writer.filepath}", flush=True)
     
     def _change_mode(self):
@@ -436,9 +437,12 @@ class AudioCapture:
         ]
         
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        audio_data = proc.stdout.read(segment_size)
-        proc.terminate()
-        
+        try:
+            audio_data = proc.stdout.read(segment_size)
+        finally:
+            proc.terminate()
+            proc.wait()
+
         return audio_data
 
 
@@ -554,6 +558,7 @@ class LiveTranslator:
         self.audio_queue = queue.Queue(maxsize=2)
         self.capture_thread = None
         self._tmp_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        self._tmp_wav.close()  # keep only the name, avoid dual open handle
 
         # Session statistics
         self.session_start = datetime.now()

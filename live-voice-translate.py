@@ -33,41 +33,96 @@ REQUIRED_PACKAGES = ["faster-whisper", "argostranslate"]
 
 def setup_virtualenv():
     """Create virtualenv and install dependencies if needed"""
-    if not VENV_DIR.exists():
-        print("═══════════════════════════════════════════")
-        print("   First Run Setup")
-        print("═══════════════════════════════════════════")
-        print("\nCreating isolated environment...")
-        print(f"Location: {VENV_DIR}\n")
-        
-        # Create virtualenv
-        VENV_DIR.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run([sys.executable, "-m", "venv", str(VENV_DIR)], check=True)
-        
-        # Install dependencies
-        pip = VENV_DIR / "bin" / "pip"
-        print(f"Installing dependencies: {', '.join(REQUIRED_PACKAGES)}")
-        print("This may take 2-3 minutes...\n")
-        
-        subprocess.run(
-            [str(pip), "install", "--upgrade", "pip"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True
-        )
-        
-        subprocess.run(
-            [str(pip), "install"] + REQUIRED_PACKAGES,
-            check=True
-        )
-        
-        print("\n✅ Setup complete!")
-        print("Starting translation...\n")
-    
-    # Re-execute with virtualenv Python if not already in it
     venv_python = VENV_DIR / "bin" / "python"
-    if Path(sys.executable).resolve() != venv_python.resolve():
+    
+    # Check if we're already running in the venv
+    current_python = Path(sys.executable).resolve()
+    
+    if VENV_DIR.exists():
+        venv_python_resolved = venv_python.resolve()
+        
+        # Already in venv, verify packages are installed
+        if current_python == venv_python_resolved:
+            # Check if all packages are available
+            missing = []
+            for pkg in REQUIRED_PACKAGES:
+                pkg_import = pkg.replace("-", "_")  # faster-whisper → faster_whisper
+                try:
+                    result = subprocess.run(
+                        [sys.executable, "-c", f"import {pkg_import}"],
+                        capture_output=True,
+                        timeout=5
+                    )
+                    if result.returncode != 0:
+                        missing.append(pkg)
+                except Exception:
+                    missing.append(pkg)
+            
+            # Install missing packages
+            if missing:
+                print(f"\n⚠️  Installing missing packages: {', '.join(missing)}\n")
+                pip = VENV_DIR / "bin" / "pip"
+                for pkg in missing:
+                    print(f"  Installing {pkg}...", flush=True)
+                    try:
+                        subprocess.run([str(pip), "install", pkg], check=True)
+                        print(f"  ✅ {pkg} installed\n", flush=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"  ❌ Failed to install {pkg}: {e}\n", flush=True)
+                        sys.exit(1)
+            
+            # All packages present, continue normally
+            return
+        
+        # Not in venv but venv exists, re-execute
+        print(f"🔄 Switching to virtualenv Python...\n", flush=True)
         os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+    
+    # Venv doesn't exist, create it
+    print("═══════════════════════════════════════════")
+    print("   First Run Setup")
+    print("═══════════════════════════════════════════")
+    print(f"\nCreating isolated environment...")
+    print(f"Location: {VENV_DIR}\n")
+    
+    # Create virtualenv
+    VENV_DIR.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        subprocess.run([sys.executable, "-m", "venv", str(VENV_DIR)], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to create virtualenv: {e}")
+        print("   Make sure python3-venv is installed:")
+        print("   sudo dnf install python3-venv")
+        sys.exit(1)
+    
+    # Install dependencies
+    pip = VENV_DIR / "bin" / "pip"
+    print(f"Installing dependencies: {', '.join(REQUIRED_PACKAGES)}")
+    print("This may take 2-3 minutes...\n")
+    
+    # Upgrade pip first
+    subprocess.run(
+        [str(pip), "install", "--upgrade", "pip"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=True
+    )
+    
+    # Install packages one by one with progress
+    for pkg in REQUIRED_PACKAGES:
+        print(f"  Installing {pkg}...", flush=True)
+        try:
+            subprocess.run([str(pip), "install", pkg], check=True)
+            print(f"  ✅ {pkg} installed\n", flush=True)
+        except subprocess.CalledProcessError as e:
+            print(f"  ❌ Failed to install {pkg}: {e}\n", flush=True)
+            sys.exit(1)
+    
+    print("\n✅ Setup complete!")
+    print("🔄 Restarting with virtualenv Python...\n")
+    
+    # Re-execute with virtualenv Python
+    os.execv(str(venv_python), [str(venv_python)] + sys.argv)
 
 # Setup virtualenv BEFORE importing dependencies
 setup_virtualenv()
@@ -82,6 +137,11 @@ import io
 import re
 import textwrap
 from datetime import datetime
+import select
+import termios
+import tty
+from threading import Thread
+import queue
 
 # Suppress warnings
 import warnings
@@ -90,6 +150,169 @@ warnings.filterwarnings("ignore")
 import argostranslate.package
 import argostranslate.translate
 from faster_whisper import WhisperModel
+
+
+# ============================================================================
+# KEYBOARD CONTROLLER (using select - no dependencies)
+# ============================================================================
+
+class KeyboardController:
+    """Handle keyboard shortcuts using select (non-blocking, no dependencies)"""
+    
+    def __init__(self, translator):
+        """
+        Initialize keyboard controller
+        
+        Args:
+            translator: LiveTranslator instance to control
+        """
+        self.translator = translator
+        self.old_settings = None
+        
+        # Keyboard shortcuts help
+        self.shortcuts = {
+            'p': 'Pause/Resume',
+            's': 'Save transcript now',
+            'm': 'Change mode (fast/normal/slow)',
+            'q': 'Quit',
+            'h': 'Show this help',
+        }
+    
+    def setup(self):
+        """Setup terminal for non-blocking input"""
+        if sys.stdin.isatty():
+            try:
+                self.old_settings = termios.tcgetattr(sys.stdin)
+                tty.setcbreak(sys.stdin.fileno())
+                
+                print("\n💡 Keyboard shortcuts enabled:")
+                self._show_help()
+                return True
+            except Exception as e:
+                print(f"\n⚠️  Could not enable keyboard shortcuts: {e}")
+                return False
+        return False
+    
+    def cleanup(self):
+        """Restore terminal settings"""
+        if self.old_settings:
+            try:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
+            except:
+                pass
+    
+    def get_key(self, timeout=0.01):
+        """
+        Get key if pressed (non-blocking)
+        
+        Args:
+            timeout: Timeout in seconds (default 0.01)
+        
+        Returns:
+            str: Key pressed or None if no key
+        """
+        try:
+            if select.select([sys.stdin], [], [], timeout)[0]:
+                char = sys.stdin.read(1)
+                # Only return single printable ASCII characters
+                if char and len(char) == 1 and char.isprintable():
+                    return char
+            return None
+        except Exception:
+            return None
+    
+    def handle_key(self, key):
+        """Handle keyboard shortcuts"""
+        if not key:
+            return
+        
+        # Convert to lowercase
+        key = key.lower()
+        
+        # Only process single character keys
+        if len(key) != 1:
+            return
+        
+        # Handle shortcuts - STRICT checking
+        if key == 'p':
+            self._toggle_pause()
+        elif key == 's':
+            self._save_now()
+        elif key == 'm':
+            self._change_mode()
+        elif key == 'q':
+            self._quit()
+        elif key == 'h':
+            self._show_help()
+        # Silently ignore other keys
+    
+    def _toggle_pause(self):
+        """Toggle pause/resume"""
+        self.translator.paused = not self.translator.paused
+        
+        if self.translator.paused:
+            print("\n⏸️  PAUSED. Press 'p' to resume.", flush=True)
+        else:
+            print("\n▶️  RESUMED", flush=True)
+    
+    def _save_now(self):
+        """Force save transcript now (create file if needed)"""
+        # Si pas de fichier configuré, en créer un automatiquement
+        if not self.translator.writer.filepath:
+            # Générer nom de fichier auto
+            filename = f"live-translate-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md"
+            
+            print(f"\n💾 Creating save file: {filename}", flush=True)
+            
+            # Créer le writer avec le nouveau fichier
+            self.translator.writer = TranscriptWriter(
+                filename,
+                self.translator.model_name,
+                self.translator.mode
+            )
+            
+            if self.translator.writer.filepath:
+                print(f"✅ Now saving to: {filename}", flush=True)
+            else:
+                print(f"❌ Could not create save file", flush=True)
+        else:
+            # Fichier existe déjà, juste sauvegarder
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            print(f"\n💾 [{timestamp}] Saving transcript...", flush=True)
+            self.translator.writer.file_handle.flush()
+            print(f"✅ Saved to: {self.translator.writer.filepath}", flush=True)
+    
+    def _change_mode(self):
+        """Cycle through modes: fast → normal → slow → fast"""
+        modes = ['fast', 'normal', 'slow']
+        current_idx = modes.index(self.translator.mode)
+        new_idx = (current_idx + 1) % len(modes)
+        new_mode = modes[new_idx]
+        
+        # Update mode and config
+        self.translator.mode = new_mode
+        self.translator.config = ModelConfig.get_config(
+            self.translator.model_name,
+            new_mode
+        )
+        
+        # Show change
+        latency = self.translator.config['latency']
+        print(f"\n🔄 Mode changed: {new_mode.upper()} (latency ~{latency})", flush=True)
+    
+    def _quit(self):
+        """Quit gracefully"""
+        print("\n\n👋 Quitting...", flush=True)
+        self.translator.should_quit = True
+    
+    def _show_help(self):
+        """Show keyboard shortcuts"""
+        print("\n╔════════════════════════════════════════╗")
+        print("║       Keyboard Shortcuts               ║")
+        print("╠════════════════════════════════════════╣")
+        for key, description in self.shortcuts.items():
+            print(f"║  {key.upper()}  → {description:<30} ║")
+        print("╚════════════════════════════════════════╝\n")
 
 
 # ============================================================================
@@ -212,17 +435,27 @@ class TranscriptWriter:
 
 
 class LiveTranslator:
-    """Main translation engine"""
+    """Main translation engine with keyboard control"""
     
-    def __init__(self, model_name, mode, save_file=None):
+    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True):
         self.model_name = model_name
         self.mode = mode
         self.config = ModelConfig.get_config(model_name, mode)
         self.writer = TranscriptWriter(save_file, model_name, mode)
         self.model = None
         
+        # Keyboard control
+        self.enable_keyboard = enable_keyboard
+        self.keyboard_controller = None
+        self.paused = False
+        self.should_quit = False
+        
+        # Audio threading
+        self.audio_queue = queue.Queue(maxsize=2)
+        self.capture_thread = None
+        
     def setup(self):
-        """Initialize Whisper model and translation"""
+        """Initialize Whisper model, translation, and keyboard"""
         # Ensure IT→EN model is installed
         self._install_translation_model()
         
@@ -230,6 +463,12 @@ class LiveTranslator:
         print(f"⏳ Loading model {self.model_name}...", flush=True)
         self.model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
         print("✅ Ready\n", flush=True)
+        
+        # Start keyboard controller
+        if self.enable_keyboard:
+            self.keyboard_controller = KeyboardController(self)
+            if not self.keyboard_controller.setup():
+                self.keyboard_controller = None
     
     @staticmethod
     def _install_translation_model():
@@ -251,9 +490,31 @@ class LiveTranslator:
         except Exception as e:
             print(f"Warning: Could not install translation model: {e}")
     
+    def _audio_capture_loop(self, stream_id):
+        """Background thread for continuous audio capture"""
+        while not self.should_quit:
+            try:
+                audio_data = AudioCapture.capture_audio(stream_id, self.config["segment"])
+                
+                # Try to add to queue (non-blocking)
+                try:
+                    self.audio_queue.put(audio_data, timeout=0.5)
+                except queue.Full:
+                    # Queue full, skip this segment
+                    pass
+                    
+            except Exception as e:
+                if not self.should_quit:
+                    print(f"\n⚠️  Audio capture error: {e}", flush=True)
+                break
+    
     def process_audio(self, audio_data):
-        """Transcribe and translate audio segment"""
-        # Skip silence
+        """Transcribe and translate audio segment (with pause support)"""
+        # Check if paused
+        if self.paused:
+            return
+        
+        # Skip very short audio
         if len(audio_data) < 50000:
             return
         
@@ -283,7 +544,6 @@ class LiveTranslator:
         for segment in segments:
             text_it = segment.text.strip()
             if text_it and len(text_it) > 3:
-                # Split by sentence
                 for sentence in re.split(r'(?<=[.!?])\s+', text_it):
                     sentence = sentence.strip()
                     if len(sentence) > 5:
@@ -313,14 +573,46 @@ class LiveTranslator:
         self.writer.write(timestamp, text_it, text_en)
     
     def run(self, stream_id):
-        """Main translation loop"""
+        """Main translation loop with keyboard control"""
+        # Start audio capture in background thread
+        self.capture_thread = Thread(
+            target=self._audio_capture_loop, 
+            args=(stream_id,), 
+            daemon=True
+        )
+        self.capture_thread.start()
+        
         try:
-            while True:
-                audio_data = AudioCapture.capture_audio(stream_id, self.config["segment"])
-                self.process_audio(audio_data)
+            while not self.should_quit:
+                # Check keyboard input (fast, non-blocking)
+                if self.keyboard_controller:
+                    key = self.keyboard_controller.get_key(timeout=0.01)
+                    if key:
+                        self.keyboard_controller.handle_key(key)
+                
+                # Get audio from queue (non-blocking with timeout)
+                try:
+                    audio_data = self.audio_queue.get(timeout=0.1)
+                    self.process_audio(audio_data)
+                except queue.Empty:
+                    # No audio ready yet, continue checking keyboard
+                    pass
+                    
         except KeyboardInterrupt:
             print("\n\nStopping translation.")
         finally:
+            # Signal threads to stop
+            self.should_quit = True
+            
+            # Cleanup keyboard
+            if self.keyboard_controller:
+                self.keyboard_controller.cleanup()
+            
+            # Wait for capture thread to finish
+            if self.capture_thread and self.capture_thread.is_alive():
+                self.capture_thread.join(timeout=2.0)
+            
+            # Close file
             self.writer.close()
 
 
@@ -364,6 +656,13 @@ Examples:
   %(prog)s medium                    # Medium model
   %(prog)s medium --save             # Save to auto-generated file
   %(prog)s large --slow --save meeting.md
+
+Keyboard shortcuts (during execution):
+  p - Pause/Resume
+  s - Save transcript now (creates file if needed)
+  m - Change mode (fast/normal/slow)
+  q - Quit
+  h - Show help
         """
     )
     
@@ -392,6 +691,12 @@ Examples:
         const=f"live-translate-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md",
         metavar="FILE",
         help="Save transcript to file (default: auto-generated)"
+    )
+    
+    parser.add_argument(
+        "--no-keyboard",
+        action="store_true",
+        help="Disable keyboard shortcuts"
     )
     
     args = parser.parse_args()
@@ -445,7 +750,10 @@ Examples:
     print()
     
     # Run translator
-    translator = LiveTranslator(model, mode, args.save)
+    translator = LiveTranslator(
+        model, mode, args.save,
+        enable_keyboard=not args.no_keyboard
+    )
     translator.setup()
     translator.run(stream_id)
 

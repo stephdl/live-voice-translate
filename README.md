@@ -50,6 +50,23 @@ use PipeWire as the default audio server. The script works seamlessly with both
 PipeWire and legacy PulseAudio systems through the `pactl`/`parec` compatibility layer.
 
 ## Installation
+
+### 1. System dependencies
+
+**Fedora / RHEL / CentOS:**
+```bash
+sudo dnf install python3-venv pulseaudio-utils
+```
+
+**Ubuntu / Debian:**
+```bash
+sudo apt install python3-venv pulseaudio-utils
+```
+
+> `pulseaudio-utils` provides `pactl` and `parec`, which are required for audio capture under both PulseAudio and PipeWire.
+
+### 2. Clone and run
+
 ```bash
 # Clone repository
 git clone https://github.com/stephdl/live-voice-translate.git
@@ -58,7 +75,7 @@ cd live-voice-translate
 # Make executable
 chmod +x live-voice-translate.py
 
-# Run (first run auto-installs dependencies)
+# Run (first run auto-installs Python dependencies)
 ./live-voice-translate.py
 ```
 

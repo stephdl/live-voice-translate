@@ -211,7 +211,7 @@ class KeyboardController:
         if self.old_settings:
             try:
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
-            except:
+            except Exception:
                 pass
     
     def get_key(self, timeout=0.01):

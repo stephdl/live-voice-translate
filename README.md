@@ -1,6 +1,6 @@
 # live-voice-translate
 
-Real-time Italian→English audio translation using Whisper and Argos Translate.
+Real-time Italian→English, French, Spanish, German audio translation using Whisper and Argos Translate.
 
 Captures system audio (YouTube, video calls, etc.) and provides instant transcription and translation with interactive keyboard controls.
 

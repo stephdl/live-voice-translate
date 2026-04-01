@@ -178,6 +178,7 @@ class KeyboardController:
             'p': 'Pause/Resume',
             's': 'Save transcript now',
             'm': 'Change mode (fast/normal/slow)',
+            'l': 'Change language (en/fr/es/de)',
             'i': 'Toggle Italian display',
             'q': 'Quit',
             'h': 'Show this help',
@@ -245,6 +246,8 @@ class KeyboardController:
             self._save_now()
         elif key == 'm':
             self._change_mode()
+        elif key == 'l':
+            self._change_language()
         elif key == 'i':
             self._toggle_italian()
         elif key == 'q':
@@ -308,6 +311,24 @@ class KeyboardController:
         latency = self.translator.config['latency']
         print(f"\n🔄 Mode changed: {new_mode.upper()} (latency ~{latency})", flush=True)
     
+    def _change_language(self):
+        """Cycle through target languages: en → fr → es → de → en"""
+        langs = ['en', 'fr', 'es', 'de']
+        lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
+        current_idx = langs.index(self.translator.target_lang)
+        new_lang = langs[(current_idx + 1) % len(langs)]
+
+        print(f"\n🌐 Switching language to {lang_labels[new_lang]}...", flush=True)
+
+        # Install Argos model if needed (may take a moment)
+        LiveTranslator._install_translation_model(new_lang)
+
+        # Update translator
+        self.translator.target_lang = new_lang
+        self.translator.writer.target_flag = TranscriptWriter.LANG_FLAGS.get(new_lang, "🇬🇧")
+
+        print(f"✅ Language: Italian → {lang_labels[new_lang]}", flush=True)
+
     def _toggle_italian(self):
         """Toggle Italian text display"""
         self.translator.show_italian = not self.translator.show_italian
@@ -823,6 +844,7 @@ Keyboard shortcuts (during execution):
   p - Pause/Resume
   s - Save transcript now (creates file if needed)
   m - Change mode (fast/normal/slow)
+  l - Change target language (en/fr/es/de)
   i - Toggle Italian display
   q - Quit
   h - Show help

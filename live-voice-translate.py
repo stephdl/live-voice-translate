@@ -560,12 +560,16 @@ class LiveTranslator:
         )
         
         # Translate and display
+        separator_printed = False
         for segment in segments:
             text_it = segment.text.strip()
             if text_it and len(text_it) > 3:
                 for sentence in re.split(r'(?<=[.!?])\s+', text_it):
                     sentence = sentence.strip()
                     if len(sentence) > 5:
+                        if not separator_printed:
+                            print("─" * 50, flush=True)
+                            separator_printed = True
                         self._translate_and_display(sentence)
     
     def _translate_and_display(self, text_it):

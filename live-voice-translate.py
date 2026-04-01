@@ -185,6 +185,7 @@ class KeyboardController:
             'p': 'Pause/Resume',
             's': 'Save transcript now',
             'm': 'Change mode (fast/normal/slow)',
+            'w': 'Change Whisper model (tiny/base/small/medium/large)',
             'l': 'Change language (en/fr/es/de)',
             'i': 'Toggle Italian display',
             'q': 'Quit',
@@ -253,6 +254,8 @@ class KeyboardController:
             self._save_now()
         elif key == 'm':
             self._change_mode()
+        elif key == 'w':
+            self._change_model()
         elif key == 'l':
             self._change_language()
         elif key == 'i':
@@ -319,6 +322,31 @@ class KeyboardController:
         latency = self.translator.config['latency']
         print(f"\n🔄 Mode changed: {new_mode.upper()} (latency ~{latency}) — effective on next audio chunk", flush=True)
     
+    def _change_model(self):
+        """Cycle through Whisper models: tiny → base → small → medium → large-v3 → tiny"""
+        models = ["tiny", "base", "small", "medium", "large-v3"]
+        current_idx = models.index(self.translator.model_name)
+        new_model = models[(current_idx + 1) % len(models)]
+
+        print(f"\n🔁 Switching to model {new_model} — pausing audio...", flush=True)
+
+        # Pause to avoid filling the queue during the long load
+        was_paused = self.translator.paused
+        self.translator.paused = True
+
+        try:
+            print(f"⏳ Loading {new_model}...", flush=True)
+            device = "cuda" if self.translator.use_gpu else "cpu"
+            compute_type = "float16" if self.translator.use_gpu else "int8"
+            self.translator.model = WhisperModel(new_model, device=device, compute_type=compute_type)
+            self.translator.model_name = new_model
+            self.translator.config = ModelConfig.get_config(new_model, self.translator.mode)
+            print(f"✅ Model: {new_model} (latency ~{self.translator.config['latency']})", flush=True)
+        except Exception as e:
+            print(f"⚠️  Failed to load {new_model}: {e}", flush=True)
+        finally:
+            self.translator.paused = was_paused
+
     def _change_language(self):
         """Cycle through target languages: en → fr → es → de → en"""
         langs = list(LANG_LABELS.keys())
@@ -862,6 +890,7 @@ Keyboard shortcuts (during execution):
   p - Pause/Resume
   s - Save transcript now (creates file if needed)
   m - Change mode (fast/normal/slow)
+  w - Change Whisper model (tiny/base/small/medium/large)
   l - Change target language (en/fr/es/de)
   i - Toggle Italian display
   q - Quit

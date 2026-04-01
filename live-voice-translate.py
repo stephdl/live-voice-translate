@@ -500,7 +500,7 @@ class LiveTranslator:
     
     LANG_FLAGS = {"en": "🇬🇧", "fr": "🇫🇷", "es": "🇪🇸", "de": "🇩🇪"}
 
-    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True, show_italian=False, vad_filter=True, target_lang="en"):
+    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True, show_italian=False, vad_filter=True, target_lang="en", use_gpu=False):
         self.model_name = model_name
         self.mode = mode
         self.config = ModelConfig.get_config(model_name, mode)
@@ -508,6 +508,7 @@ class LiveTranslator:
         self.model = None
         self.vad_filter = vad_filter
         self.target_lang = target_lang
+        self.use_gpu = use_gpu
 
         # Keyboard control
         self.enable_keyboard = enable_keyboard
@@ -536,7 +537,17 @@ class LiveTranslator:
         
         # Load Whisper model
         print(f"⏳ Loading model {self.model_name}...", flush=True)
-        self.model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
+        if self.use_gpu:
+            print("⚠️  GPU mode requested — may not work on AMD (ROCm not supported by CTranslate2)", flush=True)
+            try:
+                self.model = WhisperModel(self.model_name, device="cuda", compute_type="float16")
+                print("✅ GPU (CUDA) loaded\n", flush=True)
+            except Exception as e:
+                print(f"⚠️  GPU failed ({e}), falling back to CPU", flush=True)
+                self.model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
+                self.use_gpu = False
+        else:
+            self.model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
         print("✅ Ready\n", flush=True)
         
         # Start keyboard controller
@@ -860,6 +871,12 @@ Keyboard shortcuts (during execution):
     )
 
     parser.add_argument(
+        "--gpu",
+        action="store_true",
+        help="Use GPU/CUDA acceleration (NVIDIA only, falls back to CPU on failure)"
+    )
+
+    parser.add_argument(
         "--no-vad",
         action="store_true",
         help="Disable Voice Activity Detection (transcribe silence too)"
@@ -910,6 +927,7 @@ Keyboard shortcuts (during execution):
     lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
     lang_chain = f"Italian → English → {lang_labels[args.to]}" if args.to != "en" else "Italian → English"
     print(f"  Language   : {lang_chain}")
+    print(f"  Device     : {'GPU (CUDA) — experimental' if args.gpu else 'CPU'}")
     print(f"  VAD        : {'Disabled' if args.no_vad else 'Enabled (skips silence)'}")
     print()
     
@@ -952,6 +970,7 @@ Keyboard shortcuts (during execution):
         show_italian=args.show_italian,
         vad_filter=not args.no_vad,
         target_lang=args.to,
+        use_gpu=args.gpu,
     )
     translator.setup()
     translator.run(stream_id)

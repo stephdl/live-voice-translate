@@ -121,6 +121,7 @@ PYEOF
 main() {
     local MODEL=""
     local SPEED_MODE="normal"
+    local SAVE_FILE=""
     
     # Check for dependencies
     if ! python3 -c "import faster_whisper" 2>/dev/null; then
@@ -139,6 +140,17 @@ main() {
                 SPEED_MODE="slow"
                 shift
                 ;;
+            --save)
+                if [[ -n "${2:-}" && ! "$2" =~ ^-- ]]; then
+                    # Custom filename provided
+                    SAVE_FILE="$2"
+                    shift 2
+                else
+                    # Auto-generate filename
+                    SAVE_FILE="live-translate-$(date +%Y%m%d-%H%M%S).md"
+                    shift
+                fi
+                ;;
             --install)
                 install_deps
                 exit 0
@@ -150,17 +162,18 @@ main() {
                 echo "  tiny, base, small, medium, large"
                 echo ""
                 echo "Options:"
-                echo "  --fast, -f     Shorter segments (faster, may cut sentences)"
-                echo "  --slow, -s     Longer segments (slower, complete sentences)"
-                echo "  --install      Install dependencies"
-                echo "  --help, -h     Show this help"
+                echo "  --fast, -f          Shorter segments (faster)"
+                echo "  --slow, -s          Longer segments (complete sentences)"
+                echo "  --save [FILE]       Save transcript to file (default: auto-generated .md)"
+                echo "  --install           Install dependencies"
+                echo "  --help, -h          Show this help"
                 echo ""
                 echo "Examples:"
-                echo "  $0                    # Interactive menu, normal speed"
-                echo "  $0 medium             # Medium model, normal (~5s)"
-                echo "  $0 medium --fast      # Medium model, fast (~4s)"
-                echo "  $0 medium --slow      # Medium model, slow (~6s)"
-                echo "  $0 large --slow       # Large model, slow (~11s, best quality)"
+                echo "  $0                           # Interactive menu"
+                echo "  $0 medium                    # Medium model"
+                echo "  $0 medium --save             # Save to auto-generated file"
+                echo "  $0 large --save meeting.md   # Save to specific file"
+                echo "  $0 medium --fast --save      # Fast mode + save"
                 exit 0
                 ;;
             tiny|base|small|medium)
@@ -205,6 +218,9 @@ main() {
     elif [ "$SPEED_MODE" = "slow" ]; then
         echo "  Mode       : Slow (longer segments, complete sentences)"
     fi
+    if [ -n "$SAVE_FILE" ]; then
+        echo "  Save to    : $SAVE_FILE"
+    fi
     echo ""
     
     # Detect active audio stream
@@ -226,67 +242,111 @@ main() {
     # Launch Python transcription/translation pipeline
     python3 2>/dev/null << PYEOF
 import subprocess, wave, io, warnings, re, textwrap
+from datetime import datetime
 warnings.filterwarnings("ignore")
 import argostranslate.translate
 from faster_whisper import WhisperModel
+
+# Open save file if requested
+save_file = "${SAVE_FILE}" if "${SAVE_FILE}" else None
+file_handle = None
+
+if save_file:
+    try:
+        file_handle = open(save_file, 'w', encoding='utf-8')
+        # Write Markdown header
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        file_handle.write(f"# Live Voice Translation\n\n")
+        file_handle.write(f"**Date:** {now}  \n")
+        file_handle.write(f"**Model:** ${MODEL}  \n")
+        file_handle.write(f"**Mode:** ${SPEED_MODE}  \n\n")
+        file_handle.write("---\n\n")
+        file_handle.flush()
+        print(f"💾 Saving to: {save_file}\n", flush=True)
+    except Exception as e:
+        print(f"⚠️  Warning: Could not open save file: {e}\n", flush=True)
+        file_handle = None
 
 print("⏳ Loading model ${MODEL}...", flush=True)
 model = WhisperModel("${MODEL}", device="cpu", compute_type="int8")
 print("✅ Ready\n", flush=True)
 
-while True:
-    try:
-        # Capture audio stream
-        cmd = ["parec", "--monitor-stream=${AUDIO_STREAM}", 
-               "--format=s16le", "--rate=16000", "--channels=1"]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        audio_data = proc.stdout.read(${SEGMENT})
-        proc.terminate()
-        
-        # Skip if silence detected
-        if len(audio_data) < 50000:
+try:
+    while True:
+        try:
+            # Capture audio stream
+            cmd = ["parec", "--monitor-stream=${AUDIO_STREAM}", 
+                   "--format=s16le", "--rate=16000", "--channels=1"]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            audio_data = proc.stdout.read(${SEGMENT})
+            proc.terminate()
+            
+            # Skip if silence detected
+            if len(audio_data) < 50000:
+                continue
+            
+            # Create WAV buffer
+            wav_buffer = io.BytesIO()
+            with wave.open(wav_buffer, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(16000)
+                wf.writeframes(audio_data)
+            wav_buffer.seek(0)
+            
+            # Save to temporary file
+            with open("/tmp/audio_chunk.wav", "wb") as f:
+                f.write(wav_buffer.read())
+            
+            # Transcribe with Whisper
+            segments, info = model.transcribe("/tmp/audio_chunk.wav", language="it",
+                                              vad_filter=False, beam_size=${BEAM},
+                                              condition_on_previous_text=True)
+            
+            # Translate and display
+            for segment in segments:
+                text_it = segment.text.strip()
+                if text_it and len(text_it) > 3:
+                    # Split by sentence
+                    for sentence in re.split(r'(?<=[.!?])\s+', text_it):
+                        sentence = sentence.strip()
+                        if len(sentence) > 5:
+                            # Translate IT→EN with Argos
+                            text_en = argostranslate.translate.translate(sentence, "it", "en")
+                            
+                            # Get timestamp
+                            timestamp = datetime.now().strftime('%H:%M:%S')
+                            
+                            # Display with word wrap if needed
+                            if len(text_en) > 80:
+                                output = textwrap.fill(text_en, width=80, initial_indent="▶ ", 
+                                                       subsequent_indent="  ")
+                            else:
+                                output = f"▶ {text_en}"
+                            
+                            # Print to terminal
+                            print(output, flush=True)
+                            
+                            # Save to file if enabled (Markdown format)
+                            if file_handle:
+                                file_handle.write(f"**[{timestamp}]**\n\n")
+                                file_handle.write(f"🇮🇹 *{sentence}*\n\n")
+                                file_handle.write(f"🇬🇧 {text_en}\n\n")
+                                file_handle.write("---\n\n")
+                                file_handle.flush()
+                                
+        except KeyboardInterrupt:
+            print("\n\nStopping translation.")
+            break
+        except Exception:
             continue
-        
-        # Create WAV buffer
-        wav_buffer = io.BytesIO()
-        with wave.open(wav_buffer, 'wb') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(16000)
-            wf.writeframes(audio_data)
-        wav_buffer.seek(0)
-        
-        # Save to temporary file
-        with open("/tmp/audio_chunk.wav", "wb") as f:
-            f.write(wav_buffer.read())
-        
-        # Transcribe with Whisper
-        segments, info = model.transcribe("/tmp/audio_chunk.wav", language="it",
-                                          vad_filter=False, beam_size=${BEAM},
-                                          condition_on_previous_text=True)
-        
-        # Translate and display
-        for segment in segments:
-            text_it = segment.text.strip()
-            if text_it and len(text_it) > 3:
-                # Split by sentence
-                for sentence in re.split(r'(?<=[.!?])\s+', text_it):
-                    sentence = sentence.strip()
-                    if len(sentence) > 5:
-                        # Translate IT→EN with Argos
-                        text_en = argostranslate.translate.translate(sentence, "it", "en")
-                        
-                        # Display with word wrap if needed
-                        if len(text_en) > 80:
-                            print(textwrap.fill(text_en, width=80, initial_indent="▶ ", 
-                                               subsequent_indent="  "), flush=True)
-                        else:
-                            print(f"▶ {text_en}", flush=True)
-    except KeyboardInterrupt:
-        print("\n\nStopping translation.")
-        break
-    except:
-        continue
+finally:
+    # Close save file
+    if file_handle:
+        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        file_handle.write(f"\n**End of session:** {end_time}\n")
+        file_handle.close()
+        print(f"\n💾 Transcript saved to: {save_file}")
 PYEOF
 }
 

@@ -4,6 +4,25 @@ Real-time Italian→English audio translation using Whisper and Argos Translate.
 
 Captures system audio (YouTube, video calls, etc.) and provides instant transcription and translation with interactive keyboard controls.
 
+## 🇮🇹 → 🇬🇧 Story behind this tool
+
+As a French developer working remotely with [Nethesis](https://www.nethesis.it/) (an Italian company behind NethServer and NethSecurity), I found myself in daily Italian-language meetings and calls. Not speaking Italian fluently, I needed a practical solution to follow technical discussions in real-time.
+
+I built this tool initially for my own needs — a simple Python script to capture audio streams and translate them live during meetings. It quickly became indispensable for my daily work, allowing me to actively participate in Italian-speaking technical sessions, understand documentation being discussed, and keep up with fast-paced conversations.
+
+After months of refining it for personal use, I realized this could help other developers in similar situations. Whether you're:
+- 🤝 Working with Italian teams or clients
+- 📚 Learning from Italian technical content (YouTube, conferences, webinars)
+- 🌍 Contributing to Italian open-source projects
+- 🎓 Studying Italian tech tutorials
+
+...this tool can make your life significantly easier.
+
+It demonstrates that complex problems don't always need complex solutions — 
+sometimes a straightforward Python script is all you need.
+
+**Buon lavoro!** 🚀
+
 ## Features
 
 - 🎤 **Real-time translation** - Italian to English with ~1-18s latency

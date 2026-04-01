@@ -317,7 +317,7 @@ class KeyboardController:
         
         # Show change
         latency = self.translator.config['latency']
-        print(f"\n🔄 Mode changed: {new_mode.upper()} (latency ~{latency})", flush=True)
+        print(f"\n🔄 Mode changed: {new_mode.upper()} (latency ~{latency}) — effective on next audio chunk", flush=True)
     
     def _change_language(self):
         """Cycle through target languages: en → fr → es → de → en"""
@@ -365,6 +365,9 @@ class KeyboardController:
         print("  " + "-" * 34)
         for key, description in self.shortcuts.items():
             print(f"  {key.upper()}  ->  {description}")
+        print()
+        print("  Note: shortcuts are processed between audio chunks.")
+        print("  Response may be delayed up to one chunk duration.")
         print()
 
 

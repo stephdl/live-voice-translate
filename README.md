@@ -29,6 +29,7 @@ sometimes a straightforward Python script is all you need.
 - 🎯 **5 Whisper models** - From tiny (fast) to large-v3 (accurate)
 - ⚡ **3 speed modes** - Fast/Normal/Slow optimized for Italian
 - 🔇 **Voice Activity Detection** - Automatically skips silence and background noise (Silero VAD)
+- 📊 **Session statistics** - Duration, segments and word count displayed at end of session and saved to transcript
 - ⌨️ **Keyboard shortcuts** - Pause, save, change mode, toggle Italian display on-the-fly
 - 💾 **Markdown export** - Save timestamped transcripts
 - 🔧 **Zero configuration** - Auto-installs dependencies in isolated venv
@@ -223,9 +224,9 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 ```markdown
 # Live Voice Translation
 
-**Date:** 2026-04-01 14:25:30  
-**Model:** medium  
-**Mode:** normal  
+**Date:** 2026-04-01 14:25:30
+**Model:** medium
+**Mode:** normal
 
 ---
 
@@ -244,6 +245,11 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 🇬🇧 What happened?
 
 ---
+
+**End of session:** 2026-04-01 14:57:45
+**Duration:** 00:32:15
+**Segments:** 147
+**Words:** 1823
 ```
 
 ## How it works

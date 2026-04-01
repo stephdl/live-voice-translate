@@ -143,6 +143,9 @@ import tty
 from threading import Thread
 import queue
 
+# Force UTF-8 encoding for stdout
+sys.stdout.reconfigure(encoding='utf-8')
+
 # Suppress warnings
 import warnings
 warnings.filterwarnings("ignore")
@@ -174,6 +177,7 @@ class KeyboardController:
             'p': 'Pause/Resume',
             's': 'Save transcript now',
             'm': 'Change mode (fast/normal/slow)',
+            'i': 'Toggle Italian display',
             'q': 'Quit',
             'h': 'Show this help',
         }
@@ -240,6 +244,8 @@ class KeyboardController:
             self._save_now()
         elif key == 'm':
             self._change_mode()
+        elif key == 'i':
+            self._toggle_italian()
         elif key == 'q':
             self._quit()
         elif key == 'h':
@@ -299,6 +305,15 @@ class KeyboardController:
         # Show change
         latency = self.translator.config['latency']
         print(f"\n🔄 Mode changed: {new_mode.upper()} (latency ~{latency})", flush=True)
+    
+    def _toggle_italian(self):
+        """Toggle Italian text display"""
+        self.translator.show_italian = not self.translator.show_italian
+        
+        if self.translator.show_italian:
+            print("\n🇮🇹 Italian display: ON", flush=True)
+        else:
+            print("\n🇮🇹 Italian display: OFF", flush=True)
     
     def _quit(self):
         """Quit gracefully"""
@@ -437,7 +452,7 @@ class TranscriptWriter:
 class LiveTranslator:
     """Main translation engine with keyboard control"""
     
-    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True):
+    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True, show_italian=False):
         self.model_name = model_name
         self.mode = mode
         self.config = ModelConfig.get_config(model_name, mode)
@@ -449,6 +464,9 @@ class LiveTranslator:
         self.keyboard_controller = None
         self.paused = False
         self.should_quit = False
+        
+        # Display options
+        self.show_italian = show_italian
         
         # Audio threading
         self.audio_queue = queue.Queue(maxsize=2)
@@ -557,17 +575,32 @@ class LiveTranslator:
         # Get timestamp
         timestamp = datetime.now().strftime('%H:%M:%S')
         
-        # Display with timestamp and word wrap
+        # Display Italian if enabled
+        if self.show_italian:
+            # Display Italian line (light green color)
+            if len(text_it) > 70:
+                output_it = textwrap.fill(
+                    text_it, width=70,
+                    initial_indent=f"[{timestamp}] ",
+                    subsequent_indent=" " * 13
+                )
+            else:
+                output_it = f"[{timestamp}] {text_it}"
+            
+            # Print Italian in light green (color code 92)
+            print(f"\033[92m{output_it}\033[0m", flush=True)
+        
+        # Display English translation (normal white with arrow)
         if len(text_en) > 70:
-            output = textwrap.fill(
+            output_en = textwrap.fill(
                 text_en, width=70,
                 initial_indent=f"[{timestamp}] ▶ ",
                 subsequent_indent=" " * 13
             )
         else:
-            output = f"[{timestamp}] ▶ {text_en}"
+            output_en = f"[{timestamp}] ▶ {text_en}"
         
-        print(output, flush=True)
+        print(output_en, flush=True)
         
         # Save to file if enabled
         self.writer.write(timestamp, text_it, text_en)
@@ -619,7 +652,7 @@ class LiveTranslator:
 def show_menu():
     """Interactive model selection menu"""
     print("═══════════════════════════════════════════")
-    print("   Jitsi IT→EN Translation")
+    print("   IT→EN Live Translation")
     print("═══════════════════════════════════════════")
     print()
     print("Available models:")
@@ -656,11 +689,13 @@ Examples:
   %(prog)s medium                    # Medium model
   %(prog)s medium --save             # Save to auto-generated file
   %(prog)s large --slow --save meeting.md
+  %(prog)s medium --show-italian     # Display Italian + English
 
 Keyboard shortcuts (during execution):
   p - Pause/Resume
   s - Save transcript now (creates file if needed)
   m - Change mode (fast/normal/slow)
+  i - Toggle Italian display
   q - Quit
   h - Show help
         """
@@ -691,6 +726,12 @@ Keyboard shortcuts (during execution):
         const=f"live-translate-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md",
         metavar="FILE",
         help="Save transcript to file (default: auto-generated)"
+    )
+    
+    parser.add_argument(
+        "--show-italian", "-i",
+        action="store_true",
+        help="Display Italian text (toggle with 'i' key)"
     )
     
     parser.add_argument(
@@ -733,13 +774,15 @@ Keyboard shortcuts (during execution):
         print("  Mode       : Slow (longer segments, complete sentences)")
     if args.save:
         print(f"  Save to    : {args.save}")
+    if args.show_italian:
+        print(f"  Italian    : Displayed")
     print()
     
     # Detect audio stream
     stream_id = AudioCapture.get_active_stream()
     if not stream_id:
         print("Error: No active audio stream detected", file=sys.stderr)
-        print("Launch a YouTube video or Jitsi call with sound", file=sys.stderr)
+        print("Launch a YouTube video or video call with sound", file=sys.stderr)
         sys.exit(1)
     
     print(f"  Stream     : {stream_id}")
@@ -752,7 +795,8 @@ Keyboard shortcuts (during execution):
     # Run translator
     translator = LiveTranslator(
         model, mode, args.save,
-        enable_keyboard=not args.no_keyboard
+        enable_keyboard=not args.no_keyboard,
+        show_italian=args.show_italian
     )
     translator.setup()
     translator.run(stream_id)

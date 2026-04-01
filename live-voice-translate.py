@@ -73,27 +73,27 @@ class ModelConfig:
     CONFIGS = {
         "tiny": {
             "fast": {"segment": 64000, "beam": 1, "precision": "60%", "latency": "0.5s"},
-            "normal": {"segment": 96000, "beam": 1, "precision": "60%", "latency": "1s"},
-            "slow": {"segment": 128000, "beam": 1, "precision": "60%", "latency": "1.5s"},
+            "normal": {"segment": 128000, "beam": 1, "precision": "60%", "latency": "1.5s"},
+            "slow": {"segment": 160000, "beam": 1, "precision": "60%", "latency": "2s"},
         },
         "base": {
             "fast": {"segment": 96000, "beam": 3, "precision": "85%", "latency": "2s"},
-            "normal": {"segment": 128000, "beam": 3, "precision": "85%", "latency": "3s"},
-            "slow": {"segment": 160000, "beam": 3, "precision": "85%", "latency": "4s"},
+            "normal": {"segment": 160000, "beam": 3, "precision": "85%", "latency": "4s"},
+            "slow": {"segment": 192000, "beam": 3, "precision": "85%", "latency": "5s"},
         },
         "small": {
             "fast": {"segment": 128000, "beam": 3, "precision": "90%", "latency": "3s"},
-            "normal": {"segment": 160000, "beam": 3, "precision": "90%", "latency": "4s"},
-            "slow": {"segment": 192000, "beam": 3, "precision": "90%", "latency": "5s"},
+            "normal": {"segment": 192000, "beam": 3, "precision": "90%", "latency": "5s"},
+            "slow": {"segment": 256000, "beam": 3, "precision": "90%", "latency": "7s"},
         },
         "medium": {
             "fast": {"segment": 128000, "beam": 4, "precision": "95%", "latency": "4s"},
-            "normal": {"segment": 192000, "beam": 4, "precision": "95%", "latency": "6s"},
-            "slow": {"segment": 256000, "beam": 4, "precision": "95%", "latency": "9s"},
+            "normal": {"segment": 256000, "beam": 4, "precision": "95%", "latency": "8s"},
+            "slow": {"segment": 320000, "beam": 4, "precision": "95%", "latency": "10s"},
         },
         "large-v3": {
-            "fast": {"segment": 128000, "beam": 5, "precision": "98%", "latency": "6s"},
-            "normal": {"segment": 256000, "beam": 5, "precision": "98%", "latency": "11s"},
+            "fast": {"segment": 160000, "beam": 5, "precision": "98%", "latency": "6s"},
+            "normal": {"segment": 320000, "beam": 5, "precision": "98%", "latency": "12s"},
             "slow": {"segment": 480000, "beam": 5, "precision": "98%", "latency": "18s"},
         },
     }
@@ -266,11 +266,11 @@ def show_menu():
     print()
     print("Available models:")
     print()
-    print("  1) tiny   - Ultra fast     (60% accuracy, ~1s, 1GB RAM)")
-    print("  2) base   - Fast           (85% accuracy, ~3s, 1.5GB RAM)")
-    print("  3) small  - Balanced       (90% accuracy, ~4s, 2GB RAM)")
-    print("  4) medium - Recommended    (95% accuracy, ~6s, 5GB RAM) [DEFAULT]")
-    print("  5) large  - Maximum        (98% accuracy, ~11s, 10GB RAM) ⚠️  High fan")
+    print("  1) tiny   - Ultra fast     (60% accuracy, ~1.5s, 1GB RAM)")
+    print("  2) base   - Fast           (85% accuracy, ~4s, 1.5GB RAM)")
+    print("  3) small  - Balanced       (90% accuracy, ~5s, 2GB RAM)")
+    print("  4) medium - Recommended    (95% accuracy, ~8s, 5GB RAM) [DEFAULT]")
+    print("  5) large  - Maximum        (98% accuracy, ~12s, 10GB RAM) ⚠️  High fan")
     print()
     
     choice = input("Your choice (1-5 or Enter for default): ").strip()

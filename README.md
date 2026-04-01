@@ -25,7 +25,7 @@ sometimes a straightforward Python script is all you need.
 
 ## Features
 
-- 🎤 **Real-time translation** - Italian to English with ~1-18s latency
+- 🎤 **Real-time translation** - Italian to English, French, Spanish or German with ~1-18s latency
 - 🎯 **5 Whisper models** - From tiny (fast) to large-v3 (accurate)
 - ⚡ **3 speed modes** - Fast/Normal/Slow optimized for Italian
 - 🔇 **Voice Activity Detection** - Automatically skips silence and background noise (Silero VAD)
@@ -93,6 +93,15 @@ Select model (1-5), then start playing audio in another window.
 
 # Display Italian + English
 ./live-voice-translate.py medium --show-italian
+
+# Translate to French (via it→en→fr double translation)
+./live-voice-translate.py medium --to fr
+
+# Translate to Spanish
+./live-voice-translate.py medium --to es
+
+# Translate to German
+./live-voice-translate.py medium --to de
 
 # Disable Voice Activity Detection (transcribe everything including silence)
 ./live-voice-translate.py medium --no-vad
@@ -242,7 +251,7 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 1. **Audio capture**: Monitors PulseAudio/PipeWire stream (YouTube, video calls, etc.)
 2. **VAD filtering**: Silero VAD discards silent or noise-only segments before transcription
 3. **Transcription**: Whisper converts Italian audio to text
-4. **Translation**: Argos Translate converts Italian text to English
+4. **Translation**: Argos Translate converts Italian → English, then English → target language if needed (fr/es/de)
 5. **Display**: Shows timestamped translations in terminal
 6. **Save**: Optionally exports to Markdown file
 
@@ -395,6 +404,7 @@ Contributions welcome! Please:
 Potential future features:
 
 - [x] VAD (Voice Activity Detection) - Skips silence and background noise (Silero VAD)
+- [x] Multiple target languages (French, Spanish, German) via double translation
 - [ ] Multiple translators (DeepL/GPT fallback)
 - [ ] Bidirectional mode (IT+EN simultaneously)
 - [ ] Speaker diarization

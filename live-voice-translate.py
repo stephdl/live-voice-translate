@@ -5,29 +5,82 @@ Author: Stéphane de Labrusse
 License: MIT
 """
 
-import argparse
+import os
 import sys
 import subprocess
+from pathlib import Path
+
+# ============================================================================
+# VIRTUALENV SETUP - Runs first, before any other imports
+# ============================================================================
+
+VENV_DIR = Path.home() / ".local/share/live-voice-translate/venv"
+REQUIRED_PACKAGES = ["faster-whisper", "argostranslate"]
+
+def setup_virtualenv():
+    """Create virtualenv and install dependencies if needed"""
+    if not VENV_DIR.exists():
+        print("═══════════════════════════════════════════")
+        print("   First Run Setup")
+        print("═══════════════════════════════════════════")
+        print("\nCreating isolated environment...")
+        print(f"Location: {VENV_DIR}\n")
+        
+        # Create virtualenv
+        VENV_DIR.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run([sys.executable, "-m", "venv", str(VENV_DIR)], check=True)
+        
+        # Install dependencies
+        pip = VENV_DIR / "bin" / "pip"
+        print(f"Installing dependencies: {', '.join(REQUIRED_PACKAGES)}")
+        print("This may take 2-3 minutes...\n")
+        
+        subprocess.run(
+            [str(pip), "install", "--upgrade", "pip"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+        
+        subprocess.run(
+            [str(pip), "install"] + REQUIRED_PACKAGES,
+            check=True
+        )
+        
+        print("\n✅ Setup complete!")
+        print("Starting translation...\n")
+    
+    # Re-execute with virtualenv Python if not already in it
+    venv_python = VENV_DIR / "bin" / "python"
+    if Path(sys.executable).resolve() != venv_python.resolve():
+        os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+
+# Setup virtualenv BEFORE importing dependencies
+setup_virtualenv()
+
+# ============================================================================
+# NOW SAFE TO IMPORT - We're running in virtualenv
+# ============================================================================
+
+import argparse
 import wave
 import io
 import re
 import textwrap
 from datetime import datetime
-from pathlib import Path
 
-try:
-    import argostranslate.package
-    import argostranslate.translate
-    from faster_whisper import WhisperModel
-except ImportError:
-    print("Error: Missing dependencies. Installing...")
-    subprocess.run([sys.executable, "-m", "pip", "install", 
-                   "faster-whisper", "argostranslate", "--break-system-packages"],
-                   check=True)
-    import argostranslate.package
-    import argostranslate.translate
-    from faster_whisper import WhisperModel
+# Suppress warnings
+import warnings
+warnings.filterwarnings("ignore")
 
+import argostranslate.package
+import argostranslate.translate
+from faster_whisper import WhisperModel
+
+
+# ============================================================================
+# CORE APPLICATION CODE
+# ============================================================================
 
 class AudioCapture:
     """Handle audio stream capture using PipeWire/PulseAudio"""
@@ -68,7 +121,7 @@ class AudioCapture:
 
 
 class ModelConfig:
-    """Whisper model configurations"""
+    """Whisper model configurations - optimized for Italian"""
     
     CONFIGS = {
         "tiny": {
@@ -181,7 +234,6 @@ class LiveTranslator:
                 filter(lambda x: x.from_code == "it" and x.to_code == "en", available_packages)
             )
             argostranslate.package.install_from_path(package_to_install.download())
-            print("✅ IT→EN model installed")
         except Exception as e:
             print(f"Warning: Could not install translation model: {e}")
     

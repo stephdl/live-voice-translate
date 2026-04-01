@@ -34,6 +34,7 @@ sometimes a straightforward Python script is all you need.
 - 💾 **Markdown export** - Save timestamped transcripts
 - 🔧 **Zero configuration** - Auto-installs dependencies in isolated venv
 - 🐧 **Linux native** - Works with PipeWire/PulseAudio
+- 🎛️ **Smart audio source selection** - Auto-detects active stream, interactive menu when multiple sources are active
 - 🇮🇹 **Bilingual display** - Toggle Italian source text visibility
 
 ## Requirements
@@ -252,9 +253,24 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 **Words:** 1823
 ```
 
+## Audio source selection
+
+The tool auto-detects active audio monitor streams. If only one is active, it is selected automatically. If multiple streams are active simultaneously (e.g. a video call and a YouTube video), an interactive menu is displayed:
+
+```
+  Multiple audio streams detected:
+
+    1) USB Audio
+    2) JBL LIVE650BTNC
+
+  Select stream (1-2):
+```
+
+PipeWire internal loopback sinks are automatically filtered out.
+
 ## How it works
 
-1. **Audio capture**: Monitors PulseAudio/PipeWire stream (YouTube, video calls, etc.)
+1. **Audio source**: Auto-detects active PulseAudio/PipeWire monitor stream, with interactive selection when multiple are available
 2. **VAD filtering**: Silero VAD discards silent or noise-only segments before transcription
 3. **Transcription**: Whisper converts Italian audio to text
 4. **Translation**: Argos Translate converts Italian → English, then English → target language if needed (fr/es/de)
@@ -411,6 +427,7 @@ Potential future features:
 
 - [x] VAD (Voice Activity Detection) - Skips silence and background noise (Silero VAD)
 - [x] Multiple target languages (French, Spanish, German) via double translation
+- [x] Smart audio source selection with interactive menu for multiple streams
 - [ ] Multiple translators (DeepL/GPT fallback)
 - [ ] Bidirectional mode (IT+EN simultaneously)
 - [ ] Speaker diarization

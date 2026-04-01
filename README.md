@@ -1,6 +1,6 @@
 # live-voice-translate
 
-Real-time Italian→English audio translator in your terminal using faster-whisper and Argos. Capture from any source (Jitsi/YouTube/meetings), choose accuracy vs latency (5 models), 100% free and offline.
+Real-time Italian→English audio translator in your terminal  using faster-whisper and Argos. Capture from any source (Jitsi/YouTube/meetings), choose accuracy vs latency (5 models), 100% free and offline.
 
 ## Features
 
@@ -8,6 +8,7 @@ Real-time Italian→English audio translator in your terminal using faster-whisp
 - 🧠 **5 Whisper models** (tiny → large-v3) with configurable accuracy/latency
 - 🌐 **Italian→English translation** using Argos Translate (free, unlimited)
 - ⚡ **Adjustable speed**: --fast, normal, --slow modes
+- 💾 **Save transcripts** to Markdown files for later review
 - 🆓 **100% free and offline** - no API keys, no quotas
 - 🖥️ **Interactive menu** or direct command-line launch
 
@@ -17,52 +18,6 @@ Real-time Italian→English audio translator in your terminal using faster-whisp
 - **RAM**: 2GB minimum (small), 5GB recommended (medium), 10GB+ for large
 - **Python**: 3.10+
 - **Audio**: PipeWire or PulseAudio
-
-## Privacy & Security
-
-### 🔒 100% Private
-
-- ✅ **Everything runs on your computer** - no cloud, no servers
-- ✅ **No internet needed** (except first-time model download)
-- ✅ **Nothing is recorded** - translations appear and disappear
-- ✅ **Auto cleanup** - temporary files deleted when you stop (Ctrl+C)
-
-### What Gets Stored?
-
-| What | Where | When Deleted |
-|------|-------|--------------|
-| Audio (5 seconds) | `/tmp/audio_chunk.wav` | When you press Ctrl+C |
-| Whisper models | `~/.cache/huggingface/` | Never (reused each time) |
-| Translation model | `~/.local/share/argos-translate/` | Never (reused each time) |
-
-**Your conversations are never saved.**
-
-### Safe For
-
-✅ Confidential business meetings  
-✅ Medical discussions  
-✅ Legal conversations  
-✅ Any private audio
-
-### Comparison
-
-| Tool | Where Your Audio Goes |
-|------|----------------------|
-| **live-voice-translate** | Stays on your computer |
-| Google Translate | Sent to Google servers |
-| Zoom/Teams translate | Sent to their servers |
-| DeepL API | Sent to DeepL servers |
-
-### Network Check
-
-After installation, the script **never connects to internet**.
-
-Test it yourself:
-```bash
-# Run the script, then check network activity
-sudo tcpdump -i any | grep -v "127.0.0.1"
-# You'll see: nothing
-```
 
 ## Installation
 
@@ -132,6 +87,11 @@ Your choice (1-5 or Enter for default):
 # Slow mode (longer segments, complete sentences)
 ./live-voice-translate.sh medium --slow  # Medium, 6s latency
 ./live-voice-translate.sh large --slow   # Large, 11s latency
+
+# Save transcript to file
+./live-voice-translate.sh medium --save                    # Auto-generated filename
+./live-voice-translate.sh large --save meeting-notes.md    # Custom filename
+./live-voice-translate.sh medium --fast --save             # Fast mode + save
 ```
 
 ### Create Aliases (Optional)
@@ -144,6 +104,7 @@ cat >> ~/.bashrc << 'EOF'
 alias live-translate='~/live-voice-translate.sh'                        # Interactive menu
 alias live-translate-fast='~/live-voice-translate.sh medium --fast'    # 4s latency
 alias live-translate-balanced='~/live-voice-translate.sh medium'       # 5s latency (default)
+alias live-translate-save='~/live-voice-translate.sh medium --save'    # With transcript
 alias live-translate-quality='~/live-voice-translate.sh large'         # 8s latency
 alias live-translate-max='~/live-voice-translate.sh large --slow'      # 11s, best quality
 EOF
@@ -156,8 +117,54 @@ Now you can use:
 live-translate              # Interactive menu
 live-translate-fast         # Medium + fast mode (4s)
 live-translate-balanced     # Medium, normal (5s)
+live-translate-save         # Medium + save transcript
 live-translate-quality      # Large, normal (8s)
 live-translate-max          # Large + slow mode (11s, complete sentences)
+```
+
+## Saved Transcripts
+
+When using `--save`, transcripts are saved in **Markdown format** for easy reading and sharing.
+
+### Example Output File
+```markdown
+# Live Voice Translation
+
+**Date:** 2026-04-01 22:30:15  
+**Model:** large-v3  
+**Mode:** normal  
+
+---
+
+**[22:30:18]**
+
+🇮🇹 *Dobbiamo aggiornare il firewall di NethSecurity.*
+
+🇬🇧 We need to update the NethSecurity firewall.
+
+---
+
+**[22:30:23]**
+
+🇮🇹 *Il container Podman non si avvia correttamente.*
+
+🇬🇧 The Podman container does not start correctly.
+
+---
+
+**End of session:** 2026-04-01 22:35:42
+```
+
+### Working with Saved Files
+```bash
+# Search for specific topics
+grep -i "firewall" meeting-notes.md
+
+# Convert to PDF
+pandoc meeting-notes.md -o meeting-report.pdf
+
+# Add your own notes
+# Just edit the .md file and add comments anywhere
 ```
 
 ## How It Works
@@ -166,6 +173,7 @@ live-translate-max          # Large + slow mode (11s, complete sentences)
 2. **Transcribe**: Uses faster-whisper to transcribe Italian speech to text
 3. **Translate**: Uses Argos Translate to convert Italian text to English
 4. **Display**: Shows English translation in real-time
+5. **Save (optional)**: Records both Italian and English to Markdown file
 
 ## Use Cases
 
@@ -173,6 +181,7 @@ live-translate-max          # Large + slow mode (11s, complete sentences)
 - 📺 **YouTube videos** in Italian
 - 🎧 **Live streams** or podcasts
 - 📞 **Any audio source** playing on your computer
+- 📝 **Meeting minutes** with automatic transcript generation
 
 ## Model Comparison
 
@@ -200,6 +209,57 @@ live-translate-max          # Large + slow mode (11s, complete sentences)
 - **--fast**: Quick reactions, casual conversations (may cut long sentences)
 - **Normal**: Daily meetings, good balance
 - **--slow**: Formal presentations, complete sentences guaranteed
+
+## Privacy & Security
+
+### 🔒 100% Private
+
+- ✅ **Everything runs on your computer** - no cloud, no servers
+- ✅ **No internet needed** (except first-time model download)
+- ✅ **Nothing is logged** - only saved if you use `--save`
+- ✅ **Auto cleanup** - temporary files deleted when you stop (Ctrl+C)
+
+### What Gets Stored?
+
+| What | Where | When Deleted |
+|------|-------|--------------|
+| Audio (5 seconds) | `/tmp/audio_chunk.wav` | When you press Ctrl+C |
+| Whisper models | `~/.cache/huggingface/` | Never (reused each time) |
+| Translation model | `~/.local/share/argos-translate/` | Never (reused each time) |
+| Transcripts | Your specified file (if `--save` used) | Manual deletion |
+
+**Your conversations are never sent to external servers.**
+
+### Safe For
+
+✅ Confidential business meetings  
+✅ Medical discussions  
+✅ Legal conversations  
+✅ Any private audio
+
+### Comparison
+
+| Tool | Where Your Audio Goes |
+|------|----------------------|
+| **live-voice-translate** | Stays on your computer |
+| Google Translate | Sent to Google servers |
+| Zoom/Teams translate | Sent to their servers |
+| DeepL API | Sent to DeepL servers |
+
+### Network Check
+
+After installation, the script **never connects to internet**.
+
+Test it yourself:
+```bash
+# Run the script, then check network activity
+sudo tcpdump -i any | grep -v "127.0.0.1"
+# You'll see: nothing
+```
+
+---
+
+**Your audio never leaves your machine. Period.**
 
 ## Troubleshooting
 
@@ -287,6 +347,7 @@ You should see translations within 5-10 seconds.
 - **Audio capture**: PipeWire/PulseAudio monitor streams
 - **Segments**: Configurable 2-7 seconds audio chunks
 - **Processing**: CPU-only (no GPU required)
+- **Output format**: Markdown with timestamps
 
 ## Limitations
 
@@ -294,14 +355,15 @@ You should see translations within 5-10 seconds.
 - **Latency**: Real-time = 0.5-11s delay depending on model and speed mode
 - **Language**: Currently optimized for Italian→English only
 - **CPU usage**: Large model requires significant CPU (80%+)
+- **GPU**: Only NVIDIA CUDA supported (AMD ROCm not supported due to complexity)
 
 ## Future Improvements
 
 - [ ] Add DeepL API support (optional, paid)
 - [ ] Support more language pairs
-- [ ] GPU acceleration option
+- [ ] NVIDIA GPU acceleration (CUDA)
 - [ ] GUI interface
-- [ ] Save transcriptions to file
+- [ ] Export to different formats (JSON, TXT, PDF)
 
 ## Contributing
 

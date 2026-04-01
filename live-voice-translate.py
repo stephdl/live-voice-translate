@@ -155,6 +155,13 @@ import argostranslate.package
 import argostranslate.translate
 from faster_whisper import WhisperModel
 
+# ============================================================================
+# LANGUAGE CONSTANTS - single source of truth
+# ============================================================================
+
+LANG_LABELS = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
+LANG_FLAGS  = {"en": "🇬🇧",     "fr": "🇫🇷",     "es": "🇪🇸",     "de": "🇩🇪"}
+
 
 # ============================================================================
 # KEYBOARD CONTROLLER (using select - no dependencies)
@@ -313,21 +320,20 @@ class KeyboardController:
     
     def _change_language(self):
         """Cycle through target languages: en → fr → es → de → en"""
-        langs = ['en', 'fr', 'es', 'de']
-        lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
+        langs = list(LANG_LABELS.keys())
         current_idx = langs.index(self.translator.target_lang)
         new_lang = langs[(current_idx + 1) % len(langs)]
 
-        print(f"\n🌐 Switching language to {lang_labels[new_lang]}...", flush=True)
+        print(f"\n🌐 Switching language to {LANG_LABELS[new_lang]}...", flush=True)
 
         # Install Argos model if needed (may take a moment)
         LiveTranslator._install_translation_model(new_lang)
 
         # Update translator
         self.translator.target_lang = new_lang
-        self.translator.writer.target_flag = TranscriptWriter.LANG_FLAGS.get(new_lang, "🇬🇧")
+        self.translator.writer.target_flag = LANG_FLAGS.get(new_lang, "🇬🇧")
 
-        print(f"✅ Language: Italian → {lang_labels[new_lang]}", flush=True)
+        print(f"✅ Language: Italian → {LANG_LABELS[new_lang]}", flush=True)
 
     def _toggle_italian(self):
         """Toggle Italian text display"""
@@ -345,13 +351,12 @@ class KeyboardController:
     
     def _show_help(self):
         """Show keyboard shortcuts and current session config"""
-        lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
         t = self.translator
         print("\n  Current session")
         print("  " + "-" * 34)
         print(f"  Model    : {t.model_name}")
         print(f"  Mode     : {t.mode}")
-        print(f"  Language : Italian -> {lang_labels.get(t.target_lang, t.target_lang)}")
+        print(f"  Language : Italian -> {LANG_LABELS.get(t.target_lang, t.target_lang)}")
         print(f"  VAD      : {'on' if t.vad_filter else 'off'}")
         print(f"  Segments : {t.segment_count}  Words: {t.word_count}")
         print()
@@ -477,23 +482,20 @@ class ModelConfig:
 class TranscriptWriter:
     """Handle saving transcripts to Markdown files"""
 
-    LANG_FLAGS = {"en": "🇬🇧", "fr": "🇫🇷", "es": "🇪🇸", "de": "🇩🇪"}
-
     def __init__(self, filepath, model, mode, target_lang="en"):
         self.filepath = filepath
         self.file_handle = None
-        self.target_flag = self.LANG_FLAGS.get(target_lang, "🇬🇧")
+        self.target_flag = LANG_FLAGS.get(target_lang, "🇬🇧")
 
         if filepath:
             try:
                 self.file_handle = open(filepath, 'w', encoding='utf-8')
                 now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
                 self.file_handle.write(f"# Live Voice Translation\n\n")
                 self.file_handle.write(f"**Date:** {now}  \n")
                 self.file_handle.write(f"**Model:** {model}  \n")
                 self.file_handle.write(f"**Mode:** {mode}  \n")
-                self.file_handle.write(f"**Language:** Italian → {lang_labels.get(target_lang, target_lang)}  \n\n")
+                self.file_handle.write(f"**Language:** Italian → {LANG_LABELS.get(target_lang, target_lang)}  \n\n")
                 self.file_handle.write("---\n\n")
                 self.file_handle.flush()
                 print(f"💾 Saving to: {filepath}\n", flush=True)
@@ -529,8 +531,6 @@ class TranscriptWriter:
 class LiveTranslator:
     """Main translation engine with keyboard control"""
     
-    LANG_FLAGS = {"en": "🇬🇧", "fr": "🇫🇷", "es": "🇪🇸", "de": "🇩🇪"}
-
     def __init__(self, model_name, mode, save_file=None, enable_keyboard=True, show_italian=False, vad_filter=True, target_lang="en", use_gpu=False):
         self.model_name = model_name
         self.mode = mode
@@ -691,7 +691,7 @@ class LiveTranslator:
 
         # Get timestamp and flag
         timestamp = datetime.now().strftime('%H:%M:%S')
-        flag = self.LANG_FLAGS.get(self.target_lang, "🇬🇧")
+        flag = LANG_FLAGS.get(self.target_lang, "🇬🇧")
 
         # Display Italian if enabled
         if self.show_italian:
@@ -956,8 +956,7 @@ Keyboard shortcuts (during execution):
         print(f"  Save to    : {args.save}")
     if args.show_italian:
         print(f"  Italian    : Displayed")
-    lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
-    lang_chain = f"Italian → English → {lang_labels[args.to]}" if args.to != "en" else "Italian → English"
+    lang_chain = f"Italian → English → {LANG_LABELS[args.to]}" if args.to != "en" else "Italian → English"
     print(f"  Language   : {lang_chain}")
     print(f"  Device     : {'GPU (CUDA) — experimental' if args.gpu else 'CPU'}")
     print(f"  VAD        : {'Disabled' if args.no_vad else 'Enabled (skips silence)'}")

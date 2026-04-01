@@ -18,6 +18,52 @@ Real-time Italian→English audio translator using faster-whisper and Argos. Cap
 - **Python**: 3.10+
 - **Audio**: PipeWire or PulseAudio
 
+## Privacy & Security
+
+### 🔒 100% Private
+
+- ✅ **Everything runs on your computer** - no cloud, no servers
+- ✅ **No internet needed** (except first-time model download)
+- ✅ **Nothing is recorded** - translations appear and disappear
+- ✅ **Auto cleanup** - temporary files deleted when you stop (Ctrl+C)
+
+### What Gets Stored?
+
+| What | Where | When Deleted |
+|------|-------|--------------|
+| Audio (5 seconds) | `/tmp/audio_chunk.wav` | When you press Ctrl+C |
+| Whisper models | `~/.cache/huggingface/` | Never (reused each time) |
+| Translation model | `~/.local/share/argos-translate/` | Never (reused each time) |
+
+**Your conversations are never saved.**
+
+### Safe For
+
+✅ Confidential business meetings  
+✅ Medical discussions  
+✅ Legal conversations  
+✅ Any private audio
+
+### Comparison
+
+| Tool | Where Your Audio Goes |
+|------|----------------------|
+| **live-voice-translate** | Stays on your computer |
+| Google Translate | Sent to Google servers |
+| Zoom/Teams translate | Sent to their servers |
+| DeepL API | Sent to DeepL servers |
+
+### Network Check
+
+After installation, the script **never connects to internet**.
+
+Test it yourself:
+```bash
+# Run the script, then check network activity
+sudo tcpdump -i any | grep -v "127.0.0.1"
+# You'll see: nothing
+```
+
 ## Installation
 
 ### 1. Install system dependencies

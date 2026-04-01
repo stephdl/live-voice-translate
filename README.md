@@ -33,6 +33,7 @@ sometimes a straightforward Python script is all you need.
 - ⌨️ **Keyboard shortcuts** - Pause, save, change mode, toggle Italian display on-the-fly
 - 💾 **Markdown export** - Save timestamped transcripts
 - 🔧 **Zero configuration** - Auto-installs dependencies in isolated venv
+- ⚡ **GPU acceleration** - Experimental NVIDIA/CUDA support via `--gpu` (3-5x faster, falls back to CPU on failure)
 - 🐧 **Linux native** - Works with PipeWire/PulseAudio
 - 🎛️ **Smart audio source selection** - Auto-detects active stream, interactive menu when multiple sources are active
 - 🇮🇹 **Bilingual display** - Toggle Italian source text visibility
@@ -107,6 +108,9 @@ Select model (1-5), then start playing audio in another window.
 
 # Disable Voice Activity Detection (transcribe everything including silence)
 ./live-voice-translate.py medium --no-vad
+
+# Enable GPU acceleration (NVIDIA/CUDA only, experimental)
+./live-voice-translate.py medium --gpu
 ```
 
 ### Keyboard shortcuts
@@ -373,6 +377,7 @@ export LC_ALL=fr_FR.UTF-8
 - **Latency**: Use `--fast` mode for lower delay
 - **Accuracy**: Use `large --slow` for best quality (high CPU)
 - **RAM**: medium model needs ~5GB, large needs ~10GB
+- **GPU (NVIDIA)**: Use `--gpu` for 3-5x faster transcription — requires CUDA drivers. Falls back to CPU automatically on failure. AMD is not supported (CTranslate2 has no ROCm build).
 
 ## Advanced usage
 
@@ -428,6 +433,7 @@ Potential future features:
 - [x] VAD (Voice Activity Detection) - Skips silence and background noise (Silero VAD)
 - [x] Multiple target languages (French, Spanish, German) via double translation
 - [x] Smart audio source selection with interactive menu for multiple streams
+- [x] GPU acceleration (experimental, NVIDIA/CUDA only, auto-fallback to CPU)
 - [ ] Multiple translators (DeepL/GPT fallback)
 - [ ] Bidirectional mode (IT+EN simultaneously)
 - [ ] Speaker diarization

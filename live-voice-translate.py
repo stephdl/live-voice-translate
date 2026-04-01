@@ -337,21 +337,54 @@ class AudioCapture:
     """Handle audio stream capture using PipeWire/PulseAudio"""
     
     @staticmethod
-    def get_active_stream():
-        """Detect active audio monitor stream"""
+    def _get_descriptions():
+        """Return dict mapping source name -> human-readable description"""
+        descriptions = {}
         try:
+            env = {**os.environ, "LC_ALL": "C"}
+            result = subprocess.run(
+                ["pactl", "list", "sources"],
+                capture_output=True, text=True, check=True, env=env
+            )
+            current_name = None
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("Name:"):
+                    current_name = line.split(":", 1)[1].strip()
+                elif line.startswith("Description:") and current_name:
+                    desc = line.split(":", 1)[1].strip()
+                    # Strip "Monitor of " prefix for cleaner display
+                    if desc.startswith("Monitor of "):
+                        desc = desc[len("Monitor of "):]
+                    descriptions[current_name] = desc
+                    current_name = None
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+        return descriptions
+
+    @staticmethod
+    def get_active_streams():
+        """Return list of (id, name, description) for all RUNNING monitor sources"""
+        try:
+            env = {**os.environ, "LC_ALL": "C"}
             result = subprocess.run(
                 ["pactl", "list", "short", "sources"],
-                capture_output=True, text=True, check=True
+                capture_output=True, text=True, check=True, env=env
             )
-            
+            descriptions = AudioCapture._get_descriptions()
+            streams = []
             for line in result.stdout.splitlines():
                 if "monitor" in line and "RUNNING" in line:
-                    return line.split()[0]
-            
-            return None
+                    parts = line.split()
+                    source_id, source_name = parts[0], parts[1]
+                    # Skip PipeWire internal loopback sinks
+                    if source_name.startswith("input.loopback."):
+                        continue
+                    desc = descriptions.get(source_name, source_name)
+                    streams.append((source_id, source_name, desc))
+            return streams
         except (subprocess.CalledProcessError, FileNotFoundError):
-            return None
+            return []
     
     @staticmethod
     def capture_audio(stream_id, segment_size):
@@ -735,7 +768,7 @@ def show_menu():
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Real-time Italian→English audio translation",
+        description="Real-time Italian→English/French/Spanish/German audio translation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -743,11 +776,15 @@ Examples:
   %(prog)s medium                    # Medium model
   %(prog)s medium --save             # Save to auto-generated file
   %(prog)s large --slow --save meeting.md
-  %(prog)s medium --show-italian     # Display Italian + English
-  %(prog)s medium --to fr             # Translate to French
+  %(prog)s medium --show-italian     # Display Italian + translation
+  %(prog)s medium --to fr            # Translate to French
   %(prog)s medium --to es            # Translate to Spanish
   %(prog)s medium --to de            # Translate to German
   %(prog)s medium --no-vad           # Disable Voice Activity Detection
+
+Audio source:
+  If multiple audio streams are active (e.g. Zoom + YouTube), an
+  interactive menu lets you pick which one to translate.
 
 Keyboard shortcuts (during execution):
   p - Pause/Resume
@@ -854,14 +891,32 @@ Keyboard shortcuts (during execution):
     print(f"  VAD        : {'Disabled' if args.no_vad else 'Enabled (skips silence)'}")
     print()
     
-    # Detect audio stream
-    stream_id = AudioCapture.get_active_stream()
-    if not stream_id:
+    # Detect audio streams
+    streams = AudioCapture.get_active_streams()
+    if not streams:
         print("Error: No active audio stream detected", file=sys.stderr)
         print("Launch a YouTube video or video call with sound", file=sys.stderr)
         sys.exit(1)
-    
-    print(f"  Stream     : {stream_id}")
+
+    if len(streams) == 1:
+        stream_id, _, stream_desc = streams[0]
+    else:
+        print("  Multiple audio streams detected:")
+        print()
+        for i, (sid, sname, desc) in enumerate(streams, 1):
+            print(f"    {i}) {desc}")
+        print()
+        choice = input(f"  Select stream (1-{len(streams)}): ").strip()
+        try:
+            idx = int(choice) - 1
+            if not (0 <= idx < len(streams)):
+                raise ValueError
+        except ValueError:
+            print("Invalid choice, using first stream.")
+            idx = 0
+        stream_id, _, stream_desc = streams[idx]
+
+    print(f"  Stream     : {stream_desc}")
     print()
     print("═══════════════════════════════════════════")
     print()

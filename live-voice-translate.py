@@ -452,13 +452,16 @@ class TranscriptWriter:
 class LiveTranslator:
     """Main translation engine with keyboard control"""
     
-    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True, show_italian=False, vad_filter=True):
+    LANG_FLAGS = {"en": "🇬🇧", "fr": "🇫🇷", "es": "🇪🇸", "de": "🇩🇪"}
+
+    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True, show_italian=False, vad_filter=True, target_lang="en"):
         self.model_name = model_name
         self.mode = mode
         self.config = ModelConfig.get_config(model_name, mode)
         self.writer = TranscriptWriter(save_file, model_name, mode)
         self.model = None
         self.vad_filter = vad_filter
+        self.target_lang = target_lang
 
         # Keyboard control
         self.enable_keyboard = enable_keyboard
@@ -475,8 +478,8 @@ class LiveTranslator:
         
     def setup(self):
         """Initialize Whisper model, translation, and keyboard"""
-        # Ensure IT→EN model is installed
-        self._install_translation_model()
+        # Ensure required translation models are installed
+        self._install_translation_model(self.target_lang)
         
         # Load Whisper model
         print(f"⏳ Loading model {self.model_name}...", flush=True)
@@ -490,22 +493,30 @@ class LiveTranslator:
                 self.keyboard_controller = None
     
     @staticmethod
-    def _install_translation_model():
-        """Ensure Argos IT→EN model is installed"""
+    def _install_translation_model(target_lang="en"):
+        """Ensure required Argos translation models are installed (it→en, and en→target if needed)"""
+        pairs = [("it", "en")]
+        if target_lang != "en":
+            pairs.append(("en", target_lang))
+
         try:
             argostranslate.package.update_package_index()
             available_packages = argostranslate.package.get_available_packages()
-            
-            # Check if already installed
             installed_packages = argostranslate.package.get_installed_packages()
-            if any(pkg.from_code == "it" and pkg.to_code == "en" for pkg in installed_packages):
-                return
-            
-            # Install IT→EN package
-            package_to_install = next(
-                filter(lambda x: x.from_code == "it" and x.to_code == "en", available_packages)
-            )
-            argostranslate.package.install_from_path(package_to_install.download())
+
+            for from_code, to_code in pairs:
+                if any(p.from_code == from_code and p.to_code == to_code for p in installed_packages):
+                    continue
+                package_to_install = next(
+                    filter(lambda x: x.from_code == from_code and x.to_code == to_code, available_packages),
+                    None
+                )
+                if package_to_install is None:
+                    print(f"Warning: No Argos model found for {from_code}→{to_code}")
+                    continue
+                print(f"⏳ Installing translation model {from_code}→{to_code}...", flush=True)
+                argostranslate.package.install_from_path(package_to_install.download())
+                print(f"✅ {from_code}→{to_code} installed", flush=True)
         except Exception as e:
             print(f"Warning: Could not install translation model: {e}")
     
@@ -574,15 +585,21 @@ class LiveTranslator:
     
     def _translate_and_display(self, text_it):
         """Translate Italian text and display/save"""
-        # Translate IT→EN
+        # Step 1: it → en (always needed)
         text_en = argostranslate.translate.translate(text_it, "it", "en")
-        
-        # Get timestamp
+
+        # Step 2: en → target (if not English)
+        if self.target_lang == "en":
+            text_target = text_en
+        else:
+            text_target = argostranslate.translate.translate(text_en, "en", self.target_lang)
+
+        # Get timestamp and flag
         timestamp = datetime.now().strftime('%H:%M:%S')
-        
+        flag = self.LANG_FLAGS.get(self.target_lang, "🇬🇧")
+
         # Display Italian if enabled
         if self.show_italian:
-            # Display Italian line (light green color)
             if len(text_it) > 70:
                 output_it = textwrap.fill(
                     text_it, width=70,
@@ -591,24 +608,22 @@ class LiveTranslator:
                 )
             else:
                 output_it = f"[{timestamp}] {text_it}"
-            
-            # Print Italian in light green (color code 92)
             print(f"\033[92m{output_it}\033[0m", flush=True)
-        
-        # Display English translation (normal white with arrow)
-        if len(text_en) > 70:
-            output_en = textwrap.fill(
-                text_en, width=70,
+
+        # Display translated text
+        if len(text_target) > 70:
+            output = textwrap.fill(
+                text_target, width=70,
                 initial_indent=f"[{timestamp}] ▶ ",
                 subsequent_indent=" " * 13
             )
         else:
-            output_en = f"[{timestamp}] ▶ {text_en}"
-        
-        print(output_en, flush=True)
-        
+            output = f"[{timestamp}] ▶ {text_target}"
+
+        print(output, flush=True)
+
         # Save to file if enabled
-        self.writer.write(timestamp, text_it, text_en)
+        self.writer.write(timestamp, text_it, text_target)
     
     def run(self, stream_id):
         """Main translation loop with keyboard control"""
@@ -695,6 +710,9 @@ Examples:
   %(prog)s medium --save             # Save to auto-generated file
   %(prog)s large --slow --save meeting.md
   %(prog)s medium --show-italian     # Display Italian + English
+  %(prog)s medium --to fr             # Translate to French
+  %(prog)s medium --to es            # Translate to Spanish
+  %(prog)s medium --to de            # Translate to German
   %(prog)s medium --no-vad           # Disable Voice Activity Detection
 
 Keyboard shortcuts (during execution):
@@ -740,6 +758,14 @@ Keyboard shortcuts (during execution):
         help="Display Italian text (toggle with 'i' key)"
     )
     
+    parser.add_argument(
+        "--to",
+        choices=["en", "fr", "es", "de"],
+        default="en",
+        metavar="LANG",
+        help="Target language: en (default), fr, es, de"
+    )
+
     parser.add_argument(
         "--no-vad",
         action="store_true",
@@ -788,6 +814,9 @@ Keyboard shortcuts (during execution):
         print(f"  Save to    : {args.save}")
     if args.show_italian:
         print(f"  Italian    : Displayed")
+    lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
+    lang_chain = f"Italian → English → {lang_labels[args.to]}" if args.to != "en" else "Italian → English"
+    print(f"  Language   : {lang_chain}")
     print(f"  VAD        : {'Disabled' if args.no_vad else 'Enabled (skips silence)'}")
     print()
     
@@ -811,6 +840,7 @@ Keyboard shortcuts (during execution):
         enable_keyboard=not args.no_keyboard,
         show_italian=args.show_italian,
         vad_filter=not args.no_vad,
+        target_lang=args.to,
     )
     translator.setup()
     translator.run(stream_id)

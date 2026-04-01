@@ -11,49 +11,56 @@ Real-time Italian→English audio translator using faster-whisper and Argos. Cap
 - 🕐 **Timestamps** on every translation (terminal + saved files)
 - 💾 **Save transcripts** to Markdown files for later review
 - 🆓 **100% free and offline** - no API keys, no quotas
-- 🖥️ **Interactive menu** or direct command-line launch
+- 🐍 **Pure Python** - clean, maintainable, extensible
+- 🚀 **Auto-install** - Python dependencies installed automatically on first run
 
 ## System Requirements
 
-- **OS**: Fedora 43+ (tested) - should work on other Linux distros with PipeWire/PulseAudio
-- **RAM**: 2GB minimum (small), 5GB recommended (medium), 10GB+ for large
+- **OS**: Linux with PipeWire/PulseAudio (Fedora 43+ tested)
 - **Python**: 3.10+
+- **RAM**: 2GB minimum (small), 5GB recommended (medium), 10GB+ for large
 - **Audio**: PipeWire or PulseAudio
 
 ## Installation
 
-### 1. Install system dependencies
+### Quick Start (Recommended)
 ```bash
-# On Fedora 43
-sudo dnf install python3 python3-pip ffmpeg
+# 1. Install system dependency
+sudo dnf install ffmpeg  # Fedora/RHEL
+# OR
+sudo apt install ffmpeg  # Ubuntu/Debian
+# OR
+brew install ffmpeg      # macOS
+
+# 2. Download the script
+wget https://raw.githubusercontent.com/stephdl/live-voice-translate/main/live_translate.py
+chmod +x live_translate.py
+
+# 3. Run (auto-installs Python dependencies on first run)
+./live_translate.py
 ```
 
-### 2. Download the script
+**That's it!** Python dependencies (`faster-whisper`, `argostranslate`) are automatically installed on first run.
+
+### Manual Installation (Optional)
+
+If you prefer to install Python dependencies manually:
 ```bash
-# Download the script
-wget https://raw.githubusercontent.com/stephdl/live-voice-translate/main/live-voice-translate.sh
+# Install system dependency
+sudo dnf install ffmpeg  # Fedora/RHEL
 
-# Make it executable
-chmod +x live-voice-translate.sh
+# Install Python dependencies
+pip install faster-whisper argostranslate --break-system-packages
+
+# Run the script
+./live_translate.py
 ```
-
-### 3. First run (automatic installation)
-```bash
-./live-voice-translate.sh
-```
-
-The script will automatically install:
-- `faster-whisper` Python package
-- `argostranslate` Python package
-- Italian→English translation model
-
-**Note**: First run may take 2-3 minutes to download dependencies (~800MB for large model if selected).
 
 ## Usage
 
-### Interactive Menu (Recommended)
+### Interactive Menu
 ```bash
-./live-voice-translate.sh
+./live_translate.py
 ```
 
 You'll see:
@@ -75,24 +82,26 @@ Your choice (1-5 or Enter for default):
 
 **Press Enter** for medium (recommended) or choose 1-5.
 
-### Direct Launch
+### Command Line Usage
 ```bash
 # Normal speed (default)
-./live-voice-translate.sh medium         # Medium, 6s latency
-./live-voice-translate.sh large          # Large, 11s latency
+./live_translate.py medium         # Medium, 6s latency
+./live_translate.py large          # Large, 11s latency
 
 # Fast mode (shorter segments, faster response)
-./live-voice-translate.sh medium --fast  # Medium, 4s latency
-./live-voice-translate.sh large --fast   # Large, 6s latency
+./live_translate.py medium --fast  # Medium, 4s latency
+./live_translate.py large --fast   # Large, 6s latency
 
 # Slow mode (longer segments, complete sentences)
-./live-voice-translate.sh medium --slow  # Medium, 9s latency
-./live-voice-translate.sh large --slow   # Large, 18s latency
+./live_translate.py medium --slow  # Medium, 9s latency
+./live_translate.py large --slow   # Large, 18s latency
 
 # Save transcript to file
-./live-voice-translate.sh medium --save                    # Auto-generated filename
-./live-voice-translate.sh large --slow --save meeting.md   # Custom filename
-./live-voice-translate.sh medium --fast --save             # Fast mode + save
+./live_translate.py medium --save                    # Auto-generated filename
+./live_translate.py large --slow --save meeting.md   # Custom filename
+
+# Show help
+./live_translate.py --help
 ```
 
 ### Create Aliases (Optional)
@@ -102,12 +111,12 @@ Add convenient shortcuts to your `~/.bashrc`:
 cat >> ~/.bashrc << 'EOF'
 
 # Live voice translation aliases
-alias live-translate='~/live-voice-translate.sh'                          # Interactive menu
-alias live-translate-fast='~/live-voice-translate.sh medium --fast'      # 4s latency
-alias live-translate-balanced='~/live-voice-translate.sh medium'         # 6s latency (default)
-alias live-translate-save='~/live-voice-translate.sh medium --slow --save'  # 9s + transcript
-alias live-translate-quality='~/live-voice-translate.sh large'           # 11s latency
-alias live-translate-max='~/live-voice-translate.sh large --slow --save' # 18s + transcript
+alias live-translate='~/live_translate.py'
+alias live-translate-fast='~/live_translate.py medium --fast'
+alias live-translate-balanced='~/live_translate.py medium'
+alias live-translate-save='~/live_translate.py medium --slow --save'
+alias live-translate-quality='~/live_translate.py large'
+alias live-translate-max='~/live_translate.py large --slow --save'
 EOF
 
 source ~/.bashrc
@@ -177,12 +186,12 @@ grep -i "firewall" meeting-notes.md
 pandoc meeting-notes.md -o meeting-report.pdf
 
 # Add your own notes
-# Just edit the .md file and add comments anywhere
+vim meeting-notes.md
 ```
 
 ## How It Works
 
-1. **Capture audio**: Detects active audio stream (speakers/Bluetooth/headset)
+1. **Capture audio**: Detects active PipeWire/PulseAudio monitor stream
 2. **Transcribe**: Uses faster-whisper to transcribe Italian speech to text
 3. **Translate**: Uses Argos Translate to convert Italian text to English
 4. **Display**: Shows English translation in real-time with timestamps
@@ -227,11 +236,11 @@ pandoc meeting-notes.md -o meeting-report.pdf
 
 | Use Case | Recommended Command | Why |
 |----------|---------------------|-----|
-| **Live Jitsi meeting** | `./live-voice-translate.sh medium` | 6s latency, 95% accuracy, good balance |
-| **YouTube video** | `./live-voice-translate.sh large --slow --save` | 18s OK for video, best quality, save transcript |
-| **Quick test** | `./live-voice-translate.sh small --fast` | 3s latency, fast feedback |
-| **Important meeting** | `./live-voice-translate.sh large --save` | 11s latency, 98% accuracy, transcript saved |
-| **Podcast listening** | `./live-voice-translate.sh large --slow` | Best quality, complete sentences |
+| **Live Jitsi meeting** | `./live_translate.py medium` | 6s latency, 95% accuracy, good balance |
+| **YouTube video** | `./live_translate.py large --slow --save` | 18s OK for video, best quality, save transcript |
+| **Quick test** | `./live_translate.py small --fast` | 3s latency, fast feedback |
+| **Important meeting** | `./live_translate.py large --save` | 11s latency, 98% accuracy, transcript saved |
+| **Podcast listening** | `./live_translate.py large --slow` | Best quality, complete sentences |
 
 ## Privacy & Security
 
@@ -308,7 +317,7 @@ The script automatically selects the first `RUNNING` stream (index 51 in this ex
 **Solutions**:
 
 1. **No RUNNING stream**: Make sure audio is playing (YouTube, Jitsi)
-2. **Multiple RUNNING streams**: The script picks the first one. If wrong device, disable others temporarily
+2. **Multiple RUNNING streams**: The script picks the first one
 3. **Only SUSPENDED streams**: Enable audio playback before running the script
 
 **Debug audio capture**:
@@ -322,11 +331,30 @@ ls -lh /tmp/test.raw
 
 If file is empty (0 bytes) → wrong stream index or no audio playing.
 
-### Script doesn't show menu
+### Missing ffmpeg
 
-**Problem**: Script hangs without displaying menu
+**Problem**: Script reports missing ffmpeg
 
-**Solution**: The menu is displayed but waiting for input. Just press **Enter** or type a number (1-5).
+**Solution**: Install via system package manager
+```bash
+# Fedora/RHEL
+sudo dnf install ffmpeg
+
+# Ubuntu/Debian
+sudo apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+```
+
+### Dependencies not installing
+
+**Problem**: Auto-installation fails
+
+**Solution**: Install manually with system pip
+```bash
+pip install faster-whisper argostranslate --break-system-packages
+```
 
 ### High CPU / Fan noise with large model
 
@@ -336,9 +364,6 @@ If file is empty (0 bytes) → wrong stream index or no audio playing.
 ```bash
 # In another terminal while script is running
 htop
-
-# Or
-top -p $(pgrep -f live-voice-translate)
 ```
 
 ### Translation not working
@@ -358,10 +383,42 @@ top -p $(pgrep -f live-voice-translate)
 firefox "https://www.youtube.com/results?search_query=italian+news"
 
 # Terminal 2: Run script
-./live-voice-translate.sh medium
+./live_translate.py medium
 ```
 
 You should see translations within 6-11 seconds.
+
+## Code Structure
+```python
+live_translate.py
+├── AudioCapture       # Handle PipeWire/PulseAudio streams
+├── ModelConfig        # Whisper model configurations
+├── TranscriptWriter   # Markdown file generation
+└── LiveTranslator     # Main translation engine
+```
+
+### Extending the Code
+
+The modular design makes it easy to:
+
+- **Add new models**: Update `ModelConfig.CONFIGS`
+- **Add GPU support**: Modify `LiveTranslator.setup()` to use `device="cuda"`
+- **Add new languages**: Change translation model in `_install_translation_model()`
+- **Add new output formats**: Extend `TranscriptWriter` class
+
+Example: Adding GPU support
+```python
+# In LiveTranslator.setup()
+def setup(self):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    compute_type = "float16" if device == "cuda" else "int8"
+    
+    self.model = WhisperModel(
+        self.model_name,
+        device=device,
+        compute_type=compute_type
+    )
+```
 
 ## Technical Details
 
@@ -369,8 +426,9 @@ You should see translations within 6-11 seconds.
 - **Translation**: [Argos Translate](https://github.com/argosopentech/argos-translate) (offline, LibreTranslate engine)
 - **Audio capture**: PipeWire/PulseAudio monitor streams
 - **Segments**: Configurable 2-15 seconds audio chunks
-- **Processing**: CPU-only (no GPU required)
+- **Processing**: CPU-only (GPU support easy to add)
 - **Output format**: Markdown with timestamps
+- **Language**: Pure Python 3.10+
 
 ## Limitations
 
@@ -383,7 +441,7 @@ You should see translations within 6-11 seconds.
 ### Latency
 
 - **Real-time = delay**: 0.5-18s depending on model and speed mode
-- Not suitable for simultaneous interpretation (use professional interpreters)
+- Not suitable for simultaneous interpretation
 - Best for understanding content, not instant responses
 
 ### Transcript Quality
@@ -408,18 +466,26 @@ Due to real-time processing, transcripts may contain:
 
 ### Hardware
 
-- **CPU usage**: Large model requires significant CPU (80%+)
-- **GPU**: Only NVIDIA CUDA supported (AMD ROCm not supported due to complexity)
+- **CPU-only**: This version uses CPU processing only
+- **GPU support**: Not currently implemented (easy to add for NVIDIA CUDA)
 - **RAM**: Minimum requirements must be met for stable operation
+
+### Platform Support
+
+- **Linux**: Fully supported (Fedora, Ubuntu, Debian tested)
+- **macOS**: May work with modifications (untested)
+- **Windows**: Not supported (requires PulseAudio/PipeWire)
 
 ## Future Improvements
 
 - [ ] Add DeepL API support (optional, paid)
 - [ ] Support more language pairs (ES→EN, FR→EN, DE→EN)
 - [ ] NVIDIA GPU acceleration (CUDA)
+- [ ] macOS support (PortAudio)
 - [ ] GUI interface
 - [ ] Export to different formats (JSON, TXT, PDF)
-- [ ] Voice Activity Detection tuning for better segmentation
+- [ ] Voice Activity Detection tuning
+- [ ] Multi-speaker detection
 
 ## Contributing
 
@@ -443,6 +509,8 @@ MIT License - feel free to use, modify, and distribute.
 ## Author
 
 Created by Stéphane de Labrusse for real-time translation of Italian Nethesis meetings.
+
+**GitHub**: [@stephdl](https://github.com/stephdl)
 
 ---
 

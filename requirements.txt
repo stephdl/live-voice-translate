@@ -1,0 +1,4 @@
+# Core dependencies for live-voice-translate
+faster-whisper>=1.0.0
+argostranslate>=1.9.0
+

@@ -479,7 +479,7 @@ class TranscriptWriter:
             self.file_handle.write("---\n\n")
             self.file_handle.flush()
     
-    def close(self, duration_str=None, segment_count=None, word_count=None):
+    def close(self, duration_str=None, segment_count=None, word_count=None, dropped_count=None):
         """Close file with end timestamp and optional session statistics"""
         if self.file_handle:
             end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -489,6 +489,8 @@ class TranscriptWriter:
                 self.file_handle.write(f"**Duration:** {duration_str}  \n")
                 self.file_handle.write(f"**Segments:** {segment_count}  \n")
                 self.file_handle.write(f"**Words:** {word_count}  \n")
+                if dropped_count:
+                    self.file_handle.write(f"**Dropped:** {dropped_count} ⚠️ CPU too slow for this model  \n")
             self.file_handle.close()
             print(f"\n💾 Transcript saved to: {self.filepath}")
 
@@ -525,6 +527,7 @@ class LiveTranslator:
         self.session_start = datetime.now()
         self.segment_count = 0
         self.word_count = 0
+        self.dropped_count = 0
         
     def setup(self):
         """Initialize Whisper model, translation, and keyboard"""
@@ -580,8 +583,8 @@ class LiveTranslator:
                 try:
                     self.audio_queue.put(audio_data, timeout=0.5)
                 except queue.Full:
-                    # Queue full, skip this segment
-                    pass
+                    # Queue full, segment dropped (CPU too slow for this model)
+                    self.dropped_count += 1
                     
             except Exception as e:
                 if not self.should_quit:
@@ -733,6 +736,10 @@ class LiveTranslator:
             print(f"  Duration   : {duration_str}")
             print(f"  Segments   : {self.segment_count}")
             print(f"  Words      : {self.word_count}")
+            if self.dropped_count > 0:
+                print(f"  Dropped    : {self.dropped_count}  ⚠️  Consider --fast or a smaller model")
+            else:
+                print(f"  Dropped    : 0")
             print("═══════════════════════════════════════════")
             print()
 
@@ -747,6 +754,7 @@ class LiveTranslator:
                 duration_str=duration_str,
                 segment_count=self.segment_count,
                 word_count=self.word_count,
+                dropped_count=self.dropped_count,
             )
 
 

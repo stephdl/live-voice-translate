@@ -38,8 +38,12 @@ sometimes a straightforward Python script is all you need.
 
 - **OS**: Linux (tested on Fedora 43, Ubuntu 24.04)
 - **Python**: 3.8+
-- **Audio**: PulseAudio or PipeWire
-- **Packages**: `python3-venv` (auto-installs other dependencies)
+- **Audio**: PulseAudio or **PipeWire** (modern Linux distributions)
+- **Packages**: `python3-venv`
+
+**Note**: Most modern Linux distributions (Fedora 34+, Ubuntu 22.10+, Debian 12+) 
+use PipeWire as the default audio server. The script works seamlessly with both 
+PipeWire and legacy PulseAudio systems through the `pactl`/`parec` compatibility layer.
 
 ## Installation
 ```bash
@@ -245,12 +249,48 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 ## Troubleshooting
 
 ### No active audio stream detected
+
 ```bash
-# Check active streams
+# 1. Check if PulseAudio/PipeWire is running
+pactl info
+# Should show server info
+
+# 2. List all audio sources
+pactl list short sources
+
+# 3. Look for monitor sources (with RUNNING status)
 pactl list short sources | grep monitor
 
-# Play audio (YouTube, etc.), then rerun script
+# 4. If no monitor source is RUNNING:
+# - Play audio (YouTube, music, etc.)
+# - Run the check again
+pactl list short sources | grep -E "monitor.*RUNNING"
+
+# 5. If still no output, restart audio service
+pactl info
+
+# Output PipeWire :
+# Server Name: PulseAudio (on PipeWire 0.3.xx)
+
+# Output PulseAudio :
+# Server Name: pulseaudio
+
+systemctl --user restart pipewire pipewire-pulse  # For PipeWire
+systemctl --user restart pulseaudio                # For PulseAudio
 ```
+
+**Still not working?**
+
+Check if audio is actually playing:
+```bash
+# Monitor audio levels in real-time
+pavucontrol  # GUI tool - check "Recording" tab
+
+# Or command-line
+pactl subscribe  # Shows audio events
+```
+
+---
 
 ### First run fails
 ```bash

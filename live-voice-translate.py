@@ -452,19 +452,20 @@ class TranscriptWriter:
 class LiveTranslator:
     """Main translation engine with keyboard control"""
     
-    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True, show_italian=False):
+    def __init__(self, model_name, mode, save_file=None, enable_keyboard=True, show_italian=False, vad_filter=True):
         self.model_name = model_name
         self.mode = mode
         self.config = ModelConfig.get_config(model_name, mode)
         self.writer = TranscriptWriter(save_file, model_name, mode)
         self.model = None
-        
+        self.vad_filter = vad_filter
+
         # Keyboard control
         self.enable_keyboard = enable_keyboard
         self.keyboard_controller = None
         self.paused = False
         self.should_quit = False
-        
+
         # Display options
         self.show_italian = show_italian
         
@@ -553,7 +554,7 @@ class LiveTranslator:
         segments, _ = self.model.transcribe(
             "/tmp/audio_chunk.wav",
             language="it",
-            vad_filter=False,
+            vad_filter=self.vad_filter,
             beam_size=self.config["beam"],
             condition_on_previous_text=True
         )
@@ -690,6 +691,7 @@ Examples:
   %(prog)s medium --save             # Save to auto-generated file
   %(prog)s large --slow --save meeting.md
   %(prog)s medium --show-italian     # Display Italian + English
+  %(prog)s medium --no-vad           # Disable Voice Activity Detection
 
 Keyboard shortcuts (during execution):
   p - Pause/Resume
@@ -735,6 +737,12 @@ Keyboard shortcuts (during execution):
     )
     
     parser.add_argument(
+        "--no-vad",
+        action="store_true",
+        help="Disable Voice Activity Detection (transcribe silence too)"
+    )
+
+    parser.add_argument(
         "--no-keyboard",
         action="store_true",
         help="Disable keyboard shortcuts"
@@ -776,6 +784,7 @@ Keyboard shortcuts (during execution):
         print(f"  Save to    : {args.save}")
     if args.show_italian:
         print(f"  Italian    : Displayed")
+    print(f"  VAD        : {'Disabled' if args.no_vad else 'Enabled (skips silence)'}")
     print()
     
     # Detect audio stream
@@ -796,7 +805,8 @@ Keyboard shortcuts (during execution):
     translator = LiveTranslator(
         model, mode, args.save,
         enable_keyboard=not args.no_keyboard,
-        show_italian=args.show_italian
+        show_italian=args.show_italian,
+        vad_filter=not args.no_vad,
     )
     translator.setup()
     translator.run(stream_id)

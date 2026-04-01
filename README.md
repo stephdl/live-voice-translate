@@ -28,6 +28,7 @@ sometimes a straightforward Python script is all you need.
 - 🎤 **Real-time translation** - Italian to English with ~1-18s latency
 - 🎯 **5 Whisper models** - From tiny (fast) to large-v3 (accurate)
 - ⚡ **3 speed modes** - Fast/Normal/Slow optimized for Italian
+- 🔇 **Voice Activity Detection** - Automatically skips silence and background noise (Silero VAD)
 - ⌨️ **Keyboard shortcuts** - Pause, save, change mode, toggle Italian display on-the-fly
 - 💾 **Markdown export** - Save timestamped transcripts
 - 🔧 **Zero configuration** - Auto-installs dependencies in isolated venv
@@ -92,6 +93,9 @@ Select model (1-5), then start playing audio in another window.
 
 # Display Italian + English
 ./live-voice-translate.py medium --show-italian
+
+# Disable Voice Activity Detection (transcribe everything including silence)
+./live-voice-translate.py medium --no-vad
 ```
 
 ### Keyboard shortcuts
@@ -236,10 +240,11 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 ## How it works
 
 1. **Audio capture**: Monitors PulseAudio/PipeWire stream (YouTube, video calls, etc.)
-2. **Transcription**: Whisper converts Italian audio to text
-3. **Translation**: Argos Translate converts Italian text to English
-4. **Display**: Shows timestamped translations in terminal
-5. **Save**: Optionally exports to Markdown file
+2. **VAD filtering**: Silero VAD discards silent or noise-only segments before transcription
+3. **Transcription**: Whisper converts Italian audio to text
+4. **Translation**: Argos Translate converts Italian text to English
+5. **Display**: Shows timestamped translations in terminal
+6. **Save**: Optionally exports to Markdown file
 
 **Architecture**:
 - Audio capture runs in background thread (non-blocking)
@@ -389,7 +394,7 @@ Contributions welcome! Please:
 
 Potential future features:
 
-- [ ] VAD (Voice Activity Detection) - Reduce CPU by 70%
+- [x] VAD (Voice Activity Detection) - Skips silence and background noise (Silero VAD)
 - [ ] Multiple translators (DeepL/GPT fallback)
 - [ ] Bidirectional mode (IT+EN simultaneously)
 - [ ] Speaker diarization

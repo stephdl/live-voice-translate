@@ -135,6 +135,7 @@ import argparse
 import wave
 import io
 import re
+import tempfile
 import textwrap
 from datetime import datetime
 import select
@@ -274,7 +275,8 @@ class KeyboardController:
             self.translator.writer = TranscriptWriter(
                 filename,
                 self.translator.model_name,
-                self.translator.mode
+                self.translator.mode,
+                self.translator.target_lang,
             )
             
             if self.translator.writer.filepath:
@@ -443,32 +445,37 @@ class ModelConfig:
 
 class TranscriptWriter:
     """Handle saving transcripts to Markdown files"""
-    
-    def __init__(self, filepath, model, mode):
+
+    LANG_FLAGS = {"en": "🇬🇧", "fr": "🇫🇷", "es": "🇪🇸", "de": "🇩🇪"}
+
+    def __init__(self, filepath, model, mode, target_lang="en"):
         self.filepath = filepath
         self.file_handle = None
-        
+        self.target_flag = self.LANG_FLAGS.get(target_lang, "🇬🇧")
+
         if filepath:
             try:
                 self.file_handle = open(filepath, 'w', encoding='utf-8')
                 now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
                 self.file_handle.write(f"# Live Voice Translation\n\n")
                 self.file_handle.write(f"**Date:** {now}  \n")
                 self.file_handle.write(f"**Model:** {model}  \n")
-                self.file_handle.write(f"**Mode:** {mode}  \n\n")
+                self.file_handle.write(f"**Mode:** {mode}  \n")
+                self.file_handle.write(f"**Language:** Italian → {lang_labels.get(target_lang, target_lang)}  \n\n")
                 self.file_handle.write("---\n\n")
                 self.file_handle.flush()
                 print(f"💾 Saving to: {filepath}\n", flush=True)
             except Exception as e:
                 print(f"⚠️  Warning: Could not open save file: {e}\n", flush=True)
                 self.file_handle = None
-    
-    def write(self, timestamp, text_it, text_en):
+
+    def write(self, timestamp, text_it, text_target):
         """Write translation to file"""
         if self.file_handle:
             self.file_handle.write(f"**[{timestamp}]**\n\n")
             self.file_handle.write(f"🇮🇹 *{text_it}*\n\n")
-            self.file_handle.write(f"🇬🇧 {text_en}\n\n")
+            self.file_handle.write(f"{self.target_flag} {text_target}\n\n")
             self.file_handle.write("---\n\n")
             self.file_handle.flush()
     
@@ -495,7 +502,7 @@ class LiveTranslator:
         self.model_name = model_name
         self.mode = mode
         self.config = ModelConfig.get_config(model_name, mode)
-        self.writer = TranscriptWriter(save_file, model_name, mode)
+        self.writer = TranscriptWriter(save_file, model_name, mode, target_lang)
         self.model = None
         self.vad_filter = vad_filter
         self.target_lang = target_lang
@@ -512,6 +519,7 @@ class LiveTranslator:
         # Audio threading
         self.audio_queue = queue.Queue(maxsize=2)
         self.capture_thread = None
+        self._tmp_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
 
         # Session statistics
         self.session_start = datetime.now()
@@ -599,13 +607,13 @@ class LiveTranslator:
             wf.writeframes(audio_data)
         wav_buffer.seek(0)
         
-        # Save to temporary file
-        with open("/tmp/audio_chunk.wav", "wb") as f:
+        # Save to temporary file (unique per instance)
+        with open(self._tmp_wav.name, "wb") as f:
             f.write(wav_buffer.read())
-        
+
         # Transcribe with Whisper
         segments, _ = self.model.transcribe(
-            "/tmp/audio_chunk.wav",
+            self._tmp_wav.name,
             language="it",
             vad_filter=self.vad_filter,
             beam_size=self.config["beam"],
@@ -728,6 +736,12 @@ class LiveTranslator:
             print("═══════════════════════════════════════════")
             print()
 
+            # Remove temporary wav file
+            try:
+                os.unlink(self._tmp_wav.name)
+            except OSError:
+                pass
+
             # Close file (with session stats if saving)
             self.writer.close(
                 duration_str=duration_str,
@@ -739,7 +753,7 @@ class LiveTranslator:
 def show_menu():
     """Interactive model selection menu"""
     print("═══════════════════════════════════════════")
-    print("   IT→EN Live Translation")
+    print("   Italian Live Translation")
     print("═══════════════════════════════════════════")
     print()
     print("Available models:")

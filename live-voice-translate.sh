@@ -24,7 +24,7 @@ show_menu() {
     echo "  4) medium - Recommended    (95% accuracy, ~5s, 5GB RAM) [DEFAULT]" >&2
     
     if [ "$RAM_TOTAL" -ge 12 ]; then
-        echo "  5) large  - Maximum        (98% accuracy, ~8s, 10GB RAM) ⚠️  High fan" >&2
+        echo "  5) large  - Maximum        (98% accuracy, ~11s, 10GB RAM) ⚠️  High fan" >&2
     else
         echo "  5) large  - Maximum        [Insufficient RAM: ${RAM_TOTAL}GB]" >&2
     fi
@@ -81,15 +81,15 @@ get_model_config() {
         medium)
             case "$mode" in
                 fast) echo "SEGMENT=128000 BEAM=4 PRECISION=95% LATENCY=4s" ;;
-                slow) echo "SEGMENT=192000 BEAM=4 PRECISION=95% LATENCY=6s" ;;
-                *) echo "SEGMENT=160000 BEAM=4 PRECISION=95% LATENCY=5s" ;;
+                slow) echo "SEGMENT=256000 BEAM=4 PRECISION=95% LATENCY=9s" ;;
+                *) echo "SEGMENT=192000 BEAM=4 PRECISION=95% LATENCY=6s" ;;
             esac
             ;;
         large-v3)
             case "$mode" in
                 fast) echo "SEGMENT=128000 BEAM=5 PRECISION=98% LATENCY=6s" ;;
-                slow) echo "SEGMENT=224000 BEAM=5 PRECISION=98% LATENCY=11s" ;;
-                *) echo "SEGMENT=160000 BEAM=5 PRECISION=98% LATENCY=8s" ;;
+                slow) echo "SEGMENT=480000 BEAM=5 PRECISION=98% LATENCY=18s" ;;
+                *) echo "SEGMENT=256000 BEAM=5 PRECISION=98% LATENCY=11s" ;;
             esac
             ;;
     esac
@@ -317,14 +317,14 @@ try:
                             # Get timestamp
                             timestamp = datetime.now().strftime('%H:%M:%S')
                             
-                            # Display with word wrap if needed
-                            if len(text_en) > 80:
-                                output = textwrap.fill(text_en, width=80, initial_indent="▶ ", 
-                                                       subsequent_indent="  ")
+                            # Display with timestamp and word wrap if needed
+                            if len(text_en) > 70:
+                                output = textwrap.fill(text_en, width=70, initial_indent=f"[{timestamp}] ▶ ", 
+                                                       subsequent_indent=" " * 13)
                             else:
-                                output = f"▶ {text_en}"
+                                output = f"[{timestamp}] ▶ {text_en}"
                             
-                            # Print to terminal
+                            # Print to terminal with timestamp
                             print(output, flush=True)
                             
                             # Save to file if enabled (Markdown format)

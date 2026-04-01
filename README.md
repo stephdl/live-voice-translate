@@ -26,12 +26,12 @@ sometimes a straightforward Python script is all you need.
 ## Features
 
 - 🎤 **Real-time translation** - Italian to English, French, Spanish or German with ~1-18s latency
-- 🎯 **5 Whisper models** - From tiny (fast) to large-v3 (accurate)
-- ⚡ **3 speed modes** - Fast/Normal/Slow optimized for Italian
+- 🎯 **5 Whisper models** - From tiny (fast) to large-v3 (accurate), switchable on-the-fly with **W**
+- ⚡ **3 speed modes** - Fast/Normal/Slow optimized for Italian, switchable on-the-fly with **M**
 - 🔇 **Voice Activity Detection** - Automatically skips silence and background noise (Silero VAD)
-- 📊 **Session statistics** - Duration, segments and word count displayed at end of session and saved to transcript
-- ⌨️ **Keyboard shortcuts** - Pause, save, change mode, toggle Italian display on-the-fly
-- 💾 **Markdown export** - Save timestamped transcripts
+- 📊 **Session statistics** - Duration, segments, word count and dropped chunks at end of session
+- ⌨️ **Full keyboard control** - Pause, save, switch model, switch language, change mode on-the-fly
+- 💾 **Markdown export** - Save timestamped bilingual transcripts with session stats
 - 🔧 **Zero configuration** - Auto-installs dependencies in isolated venv
 - ⚡ **GPU acceleration** - Experimental NVIDIA/CUDA support via `--gpu` (3-5x faster, falls back to CPU on failure)
 - 🐧 **Linux native** - Works with PipeWire/PulseAudio
@@ -122,9 +122,11 @@ Select model (1-5), then start playing audio in another window.
 | **P** | Pause/Resume translation |
 | **S** | Save transcript now (creates file if needed) |
 | **M** | Change mode (fast → normal → slow → fast) |
+| **W** | Change Whisper model (tiny → base → small → medium → large-v3) |
+| **L** | Change target language (en → fr → es → de → en) |
 | **I** | Toggle Italian display (ON/OFF) |
 | **Q** | Quit gracefully |
-| **H** | Show keyboard shortcuts help |
+| **H** | Show session config + keyboard shortcuts help |
 
 **Note**: Shortcuts respond **instantly** (no need to press Enter).
 
@@ -434,10 +436,13 @@ Potential future features:
 - [x] Multiple target languages (French, Spanish, German) via double translation
 - [x] Smart audio source selection with interactive menu for multiple streams
 - [x] GPU acceleration (experimental, NVIDIA/CUDA only, auto-fallback to CPU)
+- [x] Session statistics - Duration, segments, word count, dropped chunks
+- [x] On-the-fly model switching (W key) without restarting
+- [x] On-the-fly language switching (L key) without restarting
+- [x] Markdown export with session stats and bilingual transcript
 - [ ] Multiple translators (DeepL/GPT fallback)
 - [ ] Bidirectional mode (IT+EN simultaneously)
 - [ ] Speaker diarization
-- [ ] GPU acceleration (CUDA)
 - [ ] Web dashboard
 - [ ] Export formats (PDF, DOCX, SRT subtitles)
 - [ ] Support for other language pairs

@@ -422,6 +422,17 @@ Works out-of-the-box on Wayland (tested on Fedora 43 + GNOME 49).
 
 Fully compatible with X11 desktop environments.
 
+## Privacy
+
+All processing happens **entirely on your machine** — no audio, transcription, or translation data ever leaves your computer.
+
+- **Speech recognition** is performed by [faster-whisper](https://github.com/guillaumekleindienst/faster-whisper), a local Whisper model that runs offline after the initial download.
+- **Translation** is handled by [argostranslate](https://github.com/argosopentech/argos-translate), which uses locally installed language models with no network calls at runtime.
+- **No cloud API** is contacted during use. There is no telemetry, no account, and no data sent to any third party.
+- **Audio capture** reads your system audio stream in memory only; nothing is written to disk unless you explicitly use `--save`.
+
+This tool is safe to use in environments where confidentiality matters (internal meetings, proprietary content, etc.).
+
 ## License
 
 GNU General Public License v3.0 or later

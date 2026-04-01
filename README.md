@@ -1,6 +1,6 @@
 # live-voice-translate
 
-Real-time Italian→English audio translator using faster-whisper and Argos. Capture from any source (Jitsi/YouTube/meetings), choose accuracy vs latency (5 models), 100% free and offline.
+Real-time Italian→English audio translator in your terminal using faster-whisper and Argos. Capture from any source (Jitsi/YouTube/meetings), choose accuracy vs latency (5 models), 100% free and offline.
 
 ## Features
 

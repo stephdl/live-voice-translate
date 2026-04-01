@@ -344,8 +344,18 @@ class KeyboardController:
         self.translator.should_quit = True
     
     def _show_help(self):
-        """Show keyboard shortcuts"""
-        print("\n  Keyboard Shortcuts")
+        """Show keyboard shortcuts and current session config"""
+        lang_labels = {"en": "English", "fr": "French", "es": "Spanish", "de": "German"}
+        t = self.translator
+        print("\n  Current session")
+        print("  " + "-" * 34)
+        print(f"  Model    : {t.model_name}")
+        print(f"  Mode     : {t.mode}")
+        print(f"  Language : Italian -> {lang_labels.get(t.target_lang, t.target_lang)}")
+        print(f"  VAD      : {'on' if t.vad_filter else 'off'}")
+        print(f"  Segments : {t.segment_count}  Words: {t.word_count}")
+        print()
+        print("  Keyboard Shortcuts")
         print("  " + "-" * 34)
         for key, description in self.shortcuts.items():
             print(f"  {key.upper()}  ->  {description}")

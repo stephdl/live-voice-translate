@@ -97,6 +97,21 @@ chmod +x live-voice-translate.py
 
 This takes 2-3 minutes.
 
+### 3. Updating
+
+```bash
+cd live-voice-translate
+git pull origin main
+```
+
+New Python dependencies (if any) are installed automatically on the next run.
+
+> If you get unexpected errors after an update, delete the virtualenv to force a clean reinstall:
+> ```bash
+> rm -rf ~/.local/share/live-voice-translate/venv
+> ./live-voice-translate.py
+> ```
+
 ## Usage
 
 ### Interactive menu

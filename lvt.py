@@ -68,6 +68,12 @@ def setup_virtualenv():
                         print(f"  ✅ {pkg} installed\n", flush=True)
                     except subprocess.CalledProcessError as e:
                         print(f"  ❌ Failed to install {pkg}: {e}\n", flush=True)
+                        if pkg == "webrtcvad":
+                            print("   webrtcvad requires Python development headers.")
+                            print("   Install them for your distro, then re-run:")
+                            print("     Fedora/RHEL:  sudo dnf install python3-devel")
+                            print("     openSUSE:     sudo zypper install python3-devel")
+                            print("     Debian/Ubuntu: sudo apt install python3-dev\n")
                         sys.exit(1)
 
             # All packages present, continue normally
@@ -99,9 +105,9 @@ def setup_virtualenv():
     print(f"Installing dependencies: {', '.join(REQUIRED_PACKAGES)}")
     print("This may take 2-3 minutes...\n")
     
-    # Upgrade pip first
+    # Upgrade pip and install wheel first (needed to build webrtcvad C extension)
     subprocess.run(
-        [str(pip), "install", "--upgrade", "pip"],
+        [str(pip), "install", "--upgrade", "pip", "wheel"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=True
@@ -115,8 +121,14 @@ def setup_virtualenv():
             print(f"  ✅ {pkg} installed\n", flush=True)
         except subprocess.CalledProcessError as e:
             print(f"  ❌ Failed to install {pkg}: {e}\n", flush=True)
+            if pkg == "webrtcvad":
+                print("   webrtcvad requires Python development headers.")
+                print("   Install them for your distro, then re-run:")
+                print("     Fedora/RHEL:  sudo dnf install python3-devel")
+                print("     openSUSE:     sudo zypper install python3-devel")
+                print("     Debian/Ubuntu: sudo apt install python3-dev\n")
             sys.exit(1)
-    
+
     print("\n✅ Setup complete!")
     print("🔄 Restarting with virtualenv Python...\n")
     

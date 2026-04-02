@@ -51,10 +51,10 @@ This tool is safe to use in environments where confidentiality matters (internal
 
 ## Requirements
 
-- **OS**: Linux (tested on Fedora 43, Ubuntu 24.04)
+- **OS**: Linux (tested on Fedora 43, Ubuntu 24.04, openSUSE Tumbleweed)
 - **Python**: 3.8+
 - **Audio**: PulseAudio or **PipeWire** (modern Linux distributions)
-- **Packages**: `python3-venv`
+- **Packages**: `python3-venv`, `python3-devel` (needed to compile `webrtcvad`)
 
 **Note**: Most modern Linux distributions (Fedora 34+, Ubuntu 22.10+, Debian 12+) 
 use PipeWire as the default audio server. The script works seamlessly with both 
@@ -66,12 +66,17 @@ PipeWire and legacy PulseAudio systems through the `pactl`/`parec` compatibility
 
 **Fedora / RHEL / CentOS:**
 ```bash
-sudo dnf install python3-venv pulseaudio-utils
+sudo dnf install python3-venv python3-devel pulseaudio-utils
+```
+
+**openSUSE:**
+```bash
+sudo zypper install python3-venv python3-devel pulseaudio-utils
 ```
 
 **Ubuntu / Debian:**
 ```bash
-sudo apt install python3-venv pulseaudio-utils
+sudo apt install python3-venv python3-dev pulseaudio-utils
 ```
 
 > `pulseaudio-utils` provides `pactl` and `parec`, which are required for audio capture under both PulseAudio and PipeWire.
@@ -380,9 +385,10 @@ pactl subscribe  # Shows audio events
 
 ### First run fails
 ```bash
-# Install python3-venv
-sudo dnf install python3-venv  # Fedora/RHEL
-sudo apt install python3-venv  # Ubuntu/Debian
+# Install system dependencies (python3-devel is required to compile webrtcvad)
+sudo dnf install python3-venv python3-devel     # Fedora/RHEL
+sudo zypper install python3-venv python3-devel  # openSUSE
+sudo apt install python3-venv python3-dev       # Ubuntu/Debian
 
 # Retry
 ./lvt.py

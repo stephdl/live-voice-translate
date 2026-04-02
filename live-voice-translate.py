@@ -333,8 +333,8 @@ class KeyboardController:
         )
         
         # Show change
-        latency = self.translator.config['latency']
-        print(f"\n🔄 Mode changed: {new_mode.upper()} (latency ~{latency}) — effective on next audio chunk", flush=True)
+        desc = ModelConfig.MODE_DESC.get(new_mode, new_mode)
+        print(f"\n🔄 Mode changed: {new_mode.upper()} ({desc}) — effective immediately", flush=True)
     
     def _change_model(self):
         """Cycle through Whisper models: tiny → base → small → medium → large-v3 → tiny"""
@@ -355,7 +355,7 @@ class KeyboardController:
             self.translator.model = WhisperModel(new_model, device=device, compute_type=compute_type)
             self.translator.model_name = new_model
             self.translator.config = ModelConfig.get_config(new_model, self.translator.mode)
-            print(f"✅ Model: {new_model} (latency ~{self.translator.config['latency']})", flush=True)
+            print(f"✅ Model: {new_model} (beam={self.translator.config['beam']})", flush=True)
         except Exception as e:
             print(f"⚠️  Failed to load {new_model}: {e}", flush=True)
         finally:
@@ -494,32 +494,41 @@ class AudioCapture:
 class ModelConfig:
     """Whisper model configurations - optimized for Italian"""
     
+    # vad_silence_ms : silence duration (ms) that ends an utterance
+    # vad_aggressiveness : webrtcvad aggressiveness 0 (permissive) → 3 (aggressive)
+    # beam : Whisper beam search width (higher = better quality, slower)
     CONFIGS = {
         "tiny": {
-            "fast": {"segment": 64000, "beam": 1, "precision": "60%", "latency": "0.5s"},
-            "normal": {"segment": 128000, "beam": 1, "precision": "60%", "latency": "1.5s"},
-            "slow": {"segment": 160000, "beam": 1, "precision": "60%", "latency": "2s"},
+            "fast":   {"beam": 1, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "60%"},
+            "normal": {"beam": 1, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "60%"},
+            "slow":   {"beam": 1, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "60%"},
         },
         "base": {
-            "fast": {"segment": 96000, "beam": 3, "precision": "85%", "latency": "2s"},
-            "normal": {"segment": 160000, "beam": 3, "precision": "85%", "latency": "4s"},
-            "slow": {"segment": 192000, "beam": 3, "precision": "85%", "latency": "5s"},
+            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "85%"},
+            "normal": {"beam": 3, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "85%"},
+            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "85%"},
         },
         "small": {
-            "fast": {"segment": 128000, "beam": 3, "precision": "90%", "latency": "3s"},
-            "normal": {"segment": 192000, "beam": 3, "precision": "90%", "latency": "5s"},
-            "slow": {"segment": 256000, "beam": 3, "precision": "90%", "latency": "7s"},
+            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "90%"},
+            "normal": {"beam": 3, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "90%"},
+            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "90%"},
         },
         "medium": {
-            "fast": {"segment": 128000, "beam": 4, "precision": "95%", "latency": "4s"},
-            "normal": {"segment": 256000, "beam": 4, "precision": "95%", "latency": "8s"},
-            "slow": {"segment": 320000, "beam": 4, "precision": "95%", "latency": "10s"},
+            "fast":   {"beam": 3, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "95%"},
+            "normal": {"beam": 4, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "95%"},
+            "slow":   {"beam": 5, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "95%"},
         },
         "large-v3": {
-            "fast": {"segment": 160000, "beam": 5, "precision": "98%", "latency": "6s"},
-            "normal": {"segment": 320000, "beam": 5, "precision": "98%", "latency": "12s"},
-            "slow": {"segment": 480000, "beam": 5, "precision": "98%", "latency": "18s"},
+            "fast":   {"beam": 3, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "98%"},
+            "normal": {"beam": 5, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "98%"},
+            "slow":   {"beam": 5, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "98%"},
         },
+    }
+
+    MODE_DESC = {
+        "fast":   "500ms pause — reactive, may cut mid-sentence",
+        "normal": "800ms pause — balanced",
+        "slow":   "1200ms pause — waits for complete sentences",
     }
     
     @classmethod
@@ -672,12 +681,12 @@ class LiveTranslator:
         FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000   # 480 samples
         FRAME_BYTES = FRAME_SAMPLES * 2                   # 960 bytes (16-bit mono)
 
-        SILENCE_FRAMES = 800 // FRAME_MS    # ~27 frames = 800 ms silence → end of utterance
-        PRE_PADDING_FRAMES = 300 // FRAME_MS  # ~10 frames kept before speech starts
+        PRE_PADDING_FRAMES = 300 // FRAME_MS   # ~10 frames kept before speech starts
         MIN_SPEECH_FRAMES = 500 // FRAME_MS   # ~17 frames = 500 ms minimum utterance
-        MAX_SPEECH_FRAMES = 15000 // FRAME_MS # 500 frames = 15 s maximum utterance
+        MAX_SPEECH_FRAMES = 15000 // FRAME_MS  # 500 frames = 15 s maximum utterance
 
-        vad = webrtcvad.Vad(2)  # aggressiveness 0 (permissive) → 3 (aggressive)
+        current_aggressiveness = self.config["vad_aggressiveness"]
+        vad = webrtcvad.Vad(current_aggressiveness)
 
         cmd = [
             "parec",
@@ -706,6 +715,13 @@ class LiveTranslator:
                     silence_count = 0
                     continue
 
+                # Reload VAD params from config (updated when mode changes)
+                new_aggressiveness = self.config["vad_aggressiveness"]
+                if new_aggressiveness != current_aggressiveness:
+                    current_aggressiveness = new_aggressiveness
+                    vad = webrtcvad.Vad(current_aggressiveness)
+                silence_frames = self.config["vad_silence_ms"] // FRAME_MS
+
                 try:
                     is_speech = vad.is_speech(frame, SAMPLE_RATE)
                 except Exception:
@@ -721,7 +737,7 @@ class LiveTranslator:
                     voiced_frames.append(frame)
                     if not is_speech:
                         silence_count += 1
-                        if silence_count >= SILENCE_FRAMES:
+                        if silence_count >= silence_frames:
                             # End of utterance — flush to queue
                             if len(voiced_frames) >= MIN_SPEECH_FRAMES:
                                 audio_data = b"".join(voiced_frames)
@@ -1065,11 +1081,7 @@ Keyboard shortcuts (during execution):
     print()
     print(f"  Model      : {model}")
     print(f"  Accuracy   : {config['precision']}")
-    print(f"  Latency    : ~{config['latency']}")
-    if mode == "fast":
-        print("  Mode       : Fast (shorter segments)")
-    elif mode == "slow":
-        print("  Mode       : Slow (longer segments, complete sentences)")
+    print(f"  Mode       : {mode.capitalize()} — {ModelConfig.MODE_DESC[mode]}")
     if args.save:
         print(f"  Save to    : {args.save}")
     if args.show_italian:

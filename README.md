@@ -491,7 +491,7 @@ Potential future features:
 - [ ] Web dashboard
 - [ ] Export formats (PDF, DOCX, SRT subtitles)
 - [x] Support for other language pairs (French, Spanish, German via double translation)
-- [ ] Migrate VAD from [webrtcvad](https://github.com/wiseman/py-webrtcvad) (unmaintained since 2018) to [Silero VAD](https://github.com/snakers4/silero-vad) (actively maintained, noise-robust) — ONNX Runtime variant preferred to avoid full PyTorch dependency
+- [ ] Migrate VAD from [webrtcvad](https://github.com/wiseman/py-webrtcvad) (unmaintained since 2018) to a maintained alternative — Silero VAD investigated but requires PyTorch or has ONNX API instability; RMS energy-based VAD is a viable lightweight option
 
 ## Acknowledgments
 

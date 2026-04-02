@@ -30,6 +30,91 @@ from pathlib import Path
 
 VENV_DIR = Path.home() / ".local/share/live-voice-translate/venv"
 REQUIRED_PACKAGES = ["faster-whisper", "argostranslate", "webrtcvad"]
+MIN_PYTHON = (3, 9)
+
+
+def detect_distro():
+    """Return a distro family string based on /etc/os-release."""
+    try:
+        info = {}
+        with open("/etc/os-release") as f:
+            for line in f:
+                line = line.strip()
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    info[k] = v.strip('"').lower()
+        id_ = info.get("ID", "")
+        like = info.get("ID_LIKE", "")
+        if id_ == "fedora" or "rhel" in like or "fedora" in like or "centos" in like:
+            return "fedora"
+        if "suse" in id_ or "suse" in like:
+            return "opensuse"
+        if id_ in ("ubuntu", "debian", "linuxmint", "pop") or "debian" in like or "ubuntu" in like:
+            return "debian"
+    except Exception:
+        pass
+    return "unknown"
+
+
+def find_compatible_python():
+    """Return path to a Python >= MIN_PYTHON executable, or None."""
+    import shutil
+    candidates = [f"python3.{minor}" for minor in range(13, 8, -1)]
+    for name in candidates:
+        path = shutil.which(name)
+        if path:
+            try:
+                result = subprocess.run(
+                    [path, "-c",
+                     f"import sys; sys.exit(0 if sys.version_info >= {MIN_PYTHON} else 1)"],
+                    capture_output=True, timeout=5
+                )
+                if result.returncode == 0:
+                    return path
+            except Exception:
+                continue
+    return None
+
+
+def check_python_version():
+    """Exit with a helpful message if Python is too old."""
+    if sys.version_info >= MIN_PYTHON:
+        return
+
+    ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+    req = f"{MIN_PYTHON[0]}.{MIN_PYTHON[1]}"
+    print(f"⚠️  Python {ver} détecté — Python {req}+ requis.")
+    print(f"🔍 Recherche d'une version compatible...", flush=True)
+
+    found = find_compatible_python()
+    if found:
+        print(f"✅ {found} trouvé — relancement...\n", flush=True)
+        os.execv(found, [found] + sys.argv)
+
+    # No compatible Python found — print distro-specific instructions
+    distro = detect_distro()
+    print(f"❌ Aucun Python {req}+ trouvé sur ce système.\n")
+    print("   Installez une version compatible :")
+    print()
+    if distro == "fedora":
+        print("     sudo dnf install python3.11")
+        print("     python3.11 ./lvt.py")
+    elif distro == "opensuse":
+        print("     sudo zypper install python311")
+        print("     python3.11 ./lvt.py")
+    elif distro == "debian":
+        print("     sudo apt install python3.11")
+        print("     python3.11 ./lvt.py")
+    else:
+        print("     Fedora/RHEL:   sudo dnf install python3.11")
+        print("     openSUSE:      sudo zypper install python311")
+        print("     Ubuntu/Debian: sudo apt install python3.11")
+        print("     pyenv:         pyenv install 3.11.9 && pyenv local 3.11.9")
+        print()
+        print("     Puis relancez : python3.11 ./lvt.py")
+    print()
+    sys.exit(1)
+
 
 def setup_virtualenv():
     """Create virtualenv and install dependencies if needed"""
@@ -135,7 +220,8 @@ def setup_virtualenv():
     # Re-execute with virtualenv Python
     os.execv(str(venv_python), [str(venv_python)] + sys.argv)
 
-# Setup virtualenv BEFORE importing dependencies
+# Check Python version, then setup virtualenv BEFORE importing dependencies
+check_python_version()
 setup_virtualenv()
 
 # ============================================================================

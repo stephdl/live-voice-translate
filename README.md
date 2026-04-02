@@ -52,7 +52,7 @@ This tool is safe to use in environments where confidentiality matters (internal
 ## Requirements
 
 - **OS**: Linux (tested on Fedora 43, Ubuntu 24.04, openSUSE Tumbleweed)
-- **Python**: 3.8+
+- **Python**: 3.9+ (3.11 recommandé)
 - **Audio**: PulseAudio or **PipeWire** (modern Linux distributions)
 - **Packages**: `python3-venv`, `python3-devel` (needed to compile `webrtcvad`)
 

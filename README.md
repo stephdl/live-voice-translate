@@ -299,7 +299,7 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 
 **End of session:** 2026-04-01 14:57:45
 **Duration:** 00:32:15
-**Segments:** 147
+**Phrases:** 147
 **Words:** 1823
 ```
 

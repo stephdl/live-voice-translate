@@ -801,7 +801,7 @@ class LiveTranslator:
             language="it",
             vad_filter=self.vad_filter,
             beam_size=self.config["beam"],
-            condition_on_previous_text=True,
+            condition_on_previous_text=False,
             initial_prompt=self._whisper_context or None,
         )
 

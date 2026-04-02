@@ -614,6 +614,9 @@ class LiveTranslator:
         self._tmp_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         self._tmp_wav.close()  # keep only the name, avoid dual open handle
 
+        # Rolling context passed to Whisper as initial_prompt (last ~200 chars of Italian)
+        self._whisper_context = ""
+
         # Session statistics
         self.session_start = datetime.now()
         self.segment_count = 0
@@ -790,19 +793,24 @@ class LiveTranslator:
             f.write(wav_buffer.read())
 
         # Transcribe with Whisper
+        # initial_prompt feeds the last ~200 chars of Italian to give Whisper
+        # context across VAD chunks: better capitalisation, punctuation, continuity
         segments, _ = self.model.transcribe(
             self._tmp_wav.name,
             language="it",
             vad_filter=self.vad_filter,
             beam_size=self.config["beam"],
-            condition_on_previous_text=True
+            condition_on_previous_text=True,
+            initial_prompt=self._whisper_context or None,
         )
-        
+
         # Translate and display
         separator_printed = False
+        chunk_italian = []
         for segment in segments:
             text_it = segment.text.strip()
             if text_it and len(text_it) > 3:
+                chunk_italian.append(text_it)
                 for sentence in re.split(r'(?<=[.!?])\s+', text_it):
                     sentence = sentence.strip()
                     if len(sentence) > 5:
@@ -810,6 +818,11 @@ class LiveTranslator:
                             print("─" * 50, flush=True)
                             separator_printed = True
                         self._translate_and_display(sentence)
+
+        # Update rolling context for next chunk (keep last ~200 chars)
+        if chunk_italian:
+            combined = " ".join(chunk_italian)
+            self._whisper_context = (self._whisper_context + " " + combined)[-200:].lstrip()
     
     def _translate_and_display(self, text_it):
         """Translate Italian text and display/save"""

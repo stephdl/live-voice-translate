@@ -1019,13 +1019,13 @@ Keyboard shortcuts (during execution):
     parser.add_argument(
         "--fast", "-f",
         action="store_true",
-        help="Shorter segments (faster, may cut sentences)"
+        help="500ms silence threshold, reduced beam — reactive, may cut mid-sentence"
     )
-    
+
     parser.add_argument(
         "--slow", "-s",
         action="store_true",
-        help="Longer segments (complete sentences)"
+        help="1200ms silence threshold, max beam — waits for complete sentences"
     )
     
     parser.add_argument(
@@ -1059,7 +1059,7 @@ Keyboard shortcuts (during execution):
     parser.add_argument(
         "--no-vad",
         action="store_true",
-        help="Disable Voice Activity Detection (transcribe silence too)"
+        help="Disable Whisper's internal VAD filter (webrtcvad chunking is always active)"
     )
 
     parser.add_argument(

@@ -25,10 +25,10 @@ sometimes a straightforward Python script is all you need.
 
 ## Features
 
-- 🎤 **Real-time translation** - Italian to English, French, Spanish or German with ~1-18s latency
+- 🎤 **Real-time translation** - Italian to English, French, Spanish or German, phrase by phrase as the speaker finishes
 - 🎯 **5 Whisper models** - From tiny (fast) to large-v3 (accurate), switchable on-the-fly with **W**
-- ⚡ **3 speed modes** - Fast/Normal/Slow optimized for Italian, switchable on-the-fly with **M**
-- 🔇 **Voice Activity Detection** - Automatically skips silence and background noise (Silero VAD)
+- ⚡ **3 speed modes** - Fast (500ms)/Normal (800ms)/Slow (1200ms) silence thresholds, switchable on-the-fly with **M**
+- 🔇 **VAD-based chunking** - [webrtcvad](https://github.com/wiseman/py-webrtcvad) detects speech boundaries in real-time; flushes on silence rather than fixed intervals
 - 📊 **Session statistics** - Duration, segments, word count and dropped chunks at end of session
 - ⌨️ **Full keyboard control** - Pause, save, switch model, switch language, change mode on-the-fly
 - 💾 **Markdown export** - Save timestamped bilingual transcripts with session stats
@@ -93,6 +93,7 @@ chmod +x live-voice-translate.py
 **First run** creates virtualenv in `~/.local/share/live-voice-translate/venv` and installs:
 - faster-whisper
 - argostranslate
+- webrtcvad
 
 This takes 2-3 minutes.
 
@@ -305,7 +306,7 @@ PipeWire internal loopback sinks are automatically filtered out.
 ## How it works
 
 1. **Audio source**: Auto-detects active PulseAudio/PipeWire monitor stream, with interactive selection when multiple are available
-2. **VAD filtering**: Silero VAD discards silent or noise-only segments before transcription
+2. **VAD chunking**: webrtcvad detects speech/silence boundaries and flushes each utterance when silence exceeds the mode threshold (500/800/1200ms)
 3. **Transcription**: Whisper converts Italian audio to text
 4. **Translation**: Argos Translate converts Italian → English, then English → target language if needed (fr/es/de)
 5. **Display**: Shows timestamped translations in terminal
@@ -404,8 +405,9 @@ export LC_ALL=fr_FR.UTF-8
 ## Performance tips
 
 - **CPU usage**: Use smaller models (tiny/base) on weak hardware
-- **Latency**: Use `--fast` mode for lower delay
-- **Accuracy**: Use `large --slow` for best quality (high CPU)
+- **Latency**: Use `--fast` (500ms silence, 6s max chunk) for lowest delay — may cut mid-sentence
+- **Accuracy**: Use `large --slow` (1200ms silence, 12s max chunk, max beam) for best quality
+- **Balance**: `medium` (default normal mode) is the best CPU/quality tradeoff
 - **RAM**: medium model needs ~5GB, large needs ~10GB
 - **GPU (NVIDIA)**: Use `--gpu` for 3-5x faster transcription — requires CUDA drivers. Falls back to CPU automatically on failure. AMD is not supported (CTranslate2 has no ROCm build).
 
@@ -460,7 +462,7 @@ Contributions welcome! Please:
 
 Potential future features:
 
-- [x] VAD (Voice Activity Detection) - Skips silence and background noise (Silero VAD)
+- [x] VAD-based real-time chunking (webrtcvad) — flushes on silence, phrase by phrase
 - [x] Multiple target languages (French, Spanish, German) via double translation
 - [x] Smart audio source selection with interactive menu for multiple streams
 - [x] GPU acceleration (experimental, NVIDIA/CUDA only, auto-fallback to CPU)

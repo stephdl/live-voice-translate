@@ -54,7 +54,7 @@ This tool is safe to use in environments where confidentiality matters (internal
 - **OS**: Linux (tested on Fedora 43, Ubuntu 24.04, openSUSE Tumbleweed)
 - **Python**: 3.9+ (3.11 recommandé)
 - **Audio**: PulseAudio or **PipeWire** (modern Linux distributions)
-- **Packages**: `python3-venv`, `python3-devel` (needed to compile `webrtcvad`)
+- **Packages**: `python3-venv`, `python3-devel` / `python311-devel` (needed to compile `webrtcvad`)
 
 **Note**: Most modern Linux distributions (Fedora 34+, Ubuntu 22.10+, Debian 12+) 
 use PipeWire as the default audio server. The script works seamlessly with both 
@@ -71,7 +71,7 @@ sudo dnf install python3-venv python3-devel pulseaudio-utils
 
 **openSUSE:**
 ```bash
-sudo zypper install python3-venv python3-devel pulseaudio-utils
+sudo zypper install python3-venv python311-devel pulseaudio-utils
 ```
 
 **Ubuntu / Debian:**
@@ -94,6 +94,13 @@ chmod +x lvt.py
 # Run (first run auto-installs Python dependencies)
 ./lvt.py
 ```
+
+> **If your system Python is older than 3.9** (e.g. openSUSE with Python 3.6), the script
+> auto-detects a compatible version in `/usr/bin` and re-launches itself automatically.
+> If auto-detection fails, launch manually:
+> ```bash
+> python3.11 ./lvt.py
+> ```
 
 **First run** creates virtualenv in `~/.local/share/live-voice-translate/venv` and installs:
 - faster-whisper
@@ -385,10 +392,10 @@ pactl subscribe  # Shows audio events
 
 ### First run fails
 ```bash
-# Install system dependencies (python3-devel is required to compile webrtcvad)
-sudo dnf install python3-venv python3-devel     # Fedora/RHEL
-sudo zypper install python3-venv python3-devel  # openSUSE
-sudo apt install python3-venv python3-dev       # Ubuntu/Debian
+# Install system dependencies (python*-devel is required to compile webrtcvad)
+sudo dnf install python3-venv python3-devel      # Fedora/RHEL
+sudo zypper install python3-venv python311-devel # openSUSE (adjust version if needed)
+sudo apt install python3-venv python3-dev        # Ubuntu/Debian
 
 # Retry
 ./lvt.py

@@ -84,10 +84,10 @@ git clone https://github.com/stephdl/live-voice-translate.git
 cd live-voice-translate
 
 # Make executable
-chmod +x live-voice-translate.py
+chmod +x lvt.py
 
 # Run (first run auto-installs Python dependencies)
-./live-voice-translate.py
+./lvt.py
 ```
 
 **First run** creates virtualenv in `~/.local/share/live-voice-translate/venv` and installs:
@@ -109,14 +109,14 @@ New Python dependencies (if any) are installed automatically on the next run.
 > If you get unexpected errors after an update, delete the virtualenv to force a clean reinstall:
 > ```bash
 > rm -rf ~/.local/share/live-voice-translate/venv
-> ./live-voice-translate.py
+> ./lvt.py
 > ```
 
 ## Usage
 
 ### Interactive menu
 ```bash
-./live-voice-translate.py
+./lvt.py
 ```
 
 Select model (1-5), then start playing audio in another window.
@@ -124,37 +124,37 @@ Select model (1-5), then start playing audio in another window.
 ### Command-line
 ```bash
 # Medium model (recommended)
-./live-voice-translate.py medium
+./lvt.py medium
 
 # Large model with slow mode (best quality)
-./live-voice-translate.py large --slow
+./lvt.py large --slow
 
 # Tiny model with fast mode (lowest latency)
-./live-voice-translate.py tiny --fast
+./lvt.py tiny --fast
 
 # Save transcript to file
-./live-voice-translate.py medium --save meeting.md
+./lvt.py medium --save meeting.md
 
 # Auto-generated filename
-./live-voice-translate.py medium --save
+./lvt.py medium --save
 
 # Display Italian + English
-./live-voice-translate.py medium --show-italian
+./lvt.py medium --show-italian
 
 # Translate to French (via it→en→fr double translation)
-./live-voice-translate.py medium --to fr
+./lvt.py medium --to fr
 
 # Translate to Spanish
-./live-voice-translate.py medium --to es
+./lvt.py medium --to es
 
 # Translate to German
-./live-voice-translate.py medium --to de
+./lvt.py medium --to de
 
 # Disable Voice Activity Detection (transcribe everything including silence)
-./live-voice-translate.py medium --no-vad
+./lvt.py medium --no-vad
 
 # Enable GPU acceleration (NVIDIA/CUDA only, experimental)
-./live-voice-translate.py medium --gpu
+./lvt.py medium --gpu
 ```
 
 ### Keyboard shortcuts
@@ -204,7 +204,7 @@ Change mode on-the-fly by pressing **M** during execution.
 
 ### Bilingual (Italian + English)
 ```bash
-./live-voice-translate.py medium --show-italian
+./lvt.py medium --show-italian
 ```
 ```
 [14:25:30] Oggi è stata una giornata difficile     (green)
@@ -221,7 +221,7 @@ Toggle Italian display during execution with **I** key.
 ### Translate YouTube video
 ```bash
 # Start translator
-./live-voice-translate.py medium
+./lvt.py medium
 
 # In another window/tab, open YouTube
 firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
@@ -232,7 +232,7 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 ### Translate video call
 ```bash
 # Start with save
-./live-voice-translate.py medium --save meeting.md
+./lvt.py medium --save meeting.md
 
 # Join video call (Zoom, Teams, Google Meet, Discord, etc.)
 # Translations saved to meeting.md
@@ -247,10 +247,10 @@ firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
 ### Compare models
 ```bash
 # Test tiny (fastest)
-./live-voice-translate.py tiny --fast
+./lvt.py tiny --fast
 
 # Test large (best quality)
-./live-voice-translate.py large --slow
+./lvt.py large --slow
 ```
 
 ## Output format
@@ -385,7 +385,7 @@ sudo dnf install python3-venv  # Fedora/RHEL
 sudo apt install python3-venv  # Ubuntu/Debian
 
 # Retry
-./live-voice-translate.py
+./lvt.py
 ```
 
 ### Delete and reinstall virtualenv
@@ -394,14 +394,14 @@ sudo apt install python3-venv  # Ubuntu/Debian
 rm -rf ~/.local/share/live-voice-translate/
 
 # Rerun (recreates clean venv)
-./live-voice-translate.py
+./lvt.py
 ```
 
 ### Keyboard shortcuts not working
 
 Shortcuts require terminal in TTY mode. If piping output or running in non-interactive environment, use `--no-keyboard`:
 ```bash
-./live-voice-translate.py medium --no-keyboard
+./lvt.py medium --no-keyboard
 ```
 
 ### Italian text not displaying correctly
@@ -430,13 +430,13 @@ export LC_ALL=fr_FR.UTF-8
 
 ### Custom save filename
 ```bash
-./live-voice-translate.py medium --save "$(date +%Y%m%d)-meeting.md"
+./lvt.py medium --save "$(date +%Y%m%d)-meeting.md"
 ```
 
 ### Create save file during execution
 ```bash
 # Start without --save
-./live-voice-translate.py medium
+./lvt.py medium
 
 # During execution, press 's'
 # Creates: live-translate-YYYYMMDD-HHMMSS.md

@@ -494,34 +494,35 @@ class AudioCapture:
 class ModelConfig:
     """Whisper model configurations - optimized for Italian"""
     
-    # vad_silence_ms : silence duration (ms) that ends an utterance
+    # vad_silence_ms    : silence duration (ms) that ends an utterance
     # vad_aggressiveness : webrtcvad aggressiveness 0 (permissive) → 3 (aggressive)
-    # beam : Whisper beam search width (higher = better quality, slower)
+    # max_speech_ms      : force-flush after this duration even if no silence
+    # beam               : Whisper beam search width (higher = better quality, slower)
     CONFIGS = {
         "tiny": {
-            "fast":   {"beam": 1, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "60%"},
-            "normal": {"beam": 1, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "60%"},
-            "slow":   {"beam": 1, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "60%"},
+            "fast":   {"beam": 1, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "60%"},
+            "normal": {"beam": 1, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "60%"},
+            "slow":   {"beam": 1, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "60%"},
         },
         "base": {
-            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "85%"},
-            "normal": {"beam": 3, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "85%"},
-            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "85%"},
+            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "85%"},
+            "normal": {"beam": 3, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "85%"},
+            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "85%"},
         },
         "small": {
-            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "90%"},
-            "normal": {"beam": 3, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "90%"},
-            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "90%"},
+            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "90%"},
+            "normal": {"beam": 3, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "90%"},
+            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "90%"},
         },
         "medium": {
-            "fast":   {"beam": 3, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "95%"},
-            "normal": {"beam": 4, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "95%"},
-            "slow":   {"beam": 5, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "95%"},
+            "fast":   {"beam": 3, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "95%"},
+            "normal": {"beam": 4, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "95%"},
+            "slow":   {"beam": 5, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "95%"},
         },
         "large-v3": {
-            "fast":   {"beam": 3, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "precision": "98%"},
-            "normal": {"beam": 5, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "precision": "98%"},
-            "slow":   {"beam": 5, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "precision": "98%"},
+            "fast":   {"beam": 3, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "98%"},
+            "normal": {"beam": 5, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "98%"},
+            "slow":   {"beam": 5, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "98%"},
         },
     }
 
@@ -684,9 +685,8 @@ class LiveTranslator:
         FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000   # 480 samples
         FRAME_BYTES = FRAME_SAMPLES * 2                   # 960 bytes (16-bit mono)
 
-        PRE_PADDING_FRAMES = 300 // FRAME_MS   # ~10 frames kept before speech starts
+        PRE_PADDING_FRAMES = 300 // FRAME_MS  # ~10 frames kept before speech starts
         MIN_SPEECH_FRAMES = 500 // FRAME_MS   # ~17 frames = 500 ms minimum utterance
-        MAX_SPEECH_FRAMES = 15000 // FRAME_MS  # 500 frames = 15 s maximum utterance
 
         current_aggressiveness = self.config["vad_aggressiveness"]
         vad = webrtcvad.Vad(current_aggressiveness)
@@ -754,8 +754,9 @@ class LiveTranslator:
                             silence_count = 0
                     else:
                         silence_count = 0
-                        # Safety flush if utterance is too long (Whisper limit)
-                        if len(voiced_frames) >= MAX_SPEECH_FRAMES:
+                        # Force-flush if utterance exceeds the mode's max duration
+                        max_speech_frames = self.config["max_speech_ms"] // FRAME_MS
+                        if len(voiced_frames) >= max_speech_frames:
                             audio_data = b"".join(voiced_frames)
                             try:
                                 self.audio_queue.put(audio_data, timeout=0.5)

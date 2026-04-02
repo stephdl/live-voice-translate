@@ -567,7 +567,7 @@ class AudioCapture:
 
     @staticmethod
     def get_active_streams():
-        """Return list of (id, name, description) for all RUNNING monitor sources"""
+        """Return list of (id, name, description) for all active monitor sources"""
         try:
             env = {**os.environ, "LC_ALL": "C"}
             result = subprocess.run(
@@ -577,7 +577,7 @@ class AudioCapture:
             descriptions = AudioCapture._get_descriptions()
             streams = []
             for line in result.stdout.splitlines():
-                if "monitor" in line and "RUNNING" in line:
+                if "monitor" in line and ("RUNNING" in line or "IDLE" in line):
                     parts = line.split()
                     source_id, source_name = parts[0], parts[1]
                     # Skip PipeWire internal loopback sinks

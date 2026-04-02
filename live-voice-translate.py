@@ -401,7 +401,7 @@ class KeyboardController:
         print(f"  Mode     : {t.mode}")
         print(f"  Language : Italian -> {LANG_LABELS.get(t.target_lang, t.target_lang)}")
         print(f"  VAD      : {'on' if t.vad_filter else 'off'}")
-        print(f"  Segments : {t.segment_count}  Words: {t.word_count}")
+        print(f"  Phrases  : {t.phrase_count}  Words: {t.word_count}")
         print()
         print("  Keyboard Shortcuts")
         print("  " + "-" * 34)
@@ -571,7 +571,7 @@ class TranscriptWriter:
             self.file_handle.write("---\n\n")
             self.file_handle.flush()
     
-    def close(self, duration_str=None, segment_count=None, word_count=None, dropped_count=None):
+    def close(self, duration_str=None, phrase_count=None, word_count=None, dropped_count=None):
         """Close file with end timestamp and optional session statistics"""
         if self.file_handle:
             end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -579,7 +579,7 @@ class TranscriptWriter:
             self.file_handle.write(f"**End of session:** {end_time}  \n")
             if duration_str is not None:
                 self.file_handle.write(f"**Duration:** {duration_str}  \n")
-                self.file_handle.write(f"**Segments:** {segment_count}  \n")
+                self.file_handle.write(f"**Phrases:** {phrase_count}  \n")
                 self.file_handle.write(f"**Words:** {word_count}  \n")
                 if dropped_count:
                     self.file_handle.write(f"**Dropped:** {dropped_count} ⚠️ CPU too slow for this model  \n")
@@ -620,7 +620,7 @@ class LiveTranslator:
 
         # Session statistics
         self.session_start = datetime.now()
-        self.segment_count = 0
+        self.phrase_count = 0
         self.word_count = 0
         self.dropped_count = 0
         
@@ -865,7 +865,7 @@ class LiveTranslator:
         print(output, flush=True)
 
         # Update session stats
-        self.segment_count += 1
+        self.phrase_count += 1
         self.word_count += len(text_target.split())
 
         # Save to file if enabled
@@ -923,7 +923,7 @@ class LiveTranslator:
             print("   Session Statistics")
             print("═══════════════════════════════════════════")
             print(f"  Duration   : {duration_str}")
-            print(f"  Segments   : {self.segment_count}")
+            print(f"  Phrases    : {self.phrase_count}")
             print(f"  Words      : {self.word_count}")
             if self.dropped_count > 0:
                 print(f"  Dropped    : {self.dropped_count}  ⚠️  Consider --fast or a smaller model")
@@ -941,7 +941,7 @@ class LiveTranslator:
             # Close file (with session stats if saving)
             self.writer.close(
                 duration_str=duration_str,
-                segment_count=self.segment_count,
+                phrase_count=self.phrase_count,
                 word_count=self.word_count,
                 dropped_count=self.dropped_count,
             )

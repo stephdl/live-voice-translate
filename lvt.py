@@ -590,11 +590,11 @@ class AudioCapture:
             return []
     
     @staticmethod
-    def capture_audio(stream_id, segment_size):
+    def capture_audio(source_name, segment_size):
         """Capture audio segment from stream"""
         cmd = [
             "parec",
-            f"--monitor-stream={stream_id}",
+            f"--device={source_name}",
             "--format=s16le",
             "--rate=16000",
             "--channels=1"
@@ -797,7 +797,7 @@ class LiveTranslator:
         except Exception as e:
             print(f"Warning: Could not install translation model: {e}")
     
-    def _audio_capture_loop(self, stream_id):
+    def _audio_capture_loop(self, source_name):
         """Background thread: continuous audio capture with VAD-based segmentation"""
         SAMPLE_RATE = 16000
         FRAME_MS = 30                                     # 30 ms per VAD frame
@@ -812,7 +812,7 @@ class LiveTranslator:
 
         cmd = [
             "parec",
-            f"--monitor-stream={stream_id}",
+            f"--device={source_name}",
             "--format=s16le",
             f"--rate={SAMPLE_RATE}",
             "--channels=1",
@@ -1233,7 +1233,7 @@ Keyboard shortcuts (during execution):
         sys.exit(1)
 
     if len(streams) == 1:
-        stream_id, _, stream_desc = streams[0]
+        _, stream_id, stream_desc = streams[0]
     else:
         print("  Multiple audio streams detected:")
         print()
@@ -1248,7 +1248,7 @@ Keyboard shortcuts (during execution):
         except ValueError:
             print("Invalid choice, using first stream.")
             idx = 0
-        stream_id, _, stream_desc = streams[idx]
+        _, stream_id, stream_desc = streams[idx]
 
     print(f"  Stream     : {stream_desc}")
     print()

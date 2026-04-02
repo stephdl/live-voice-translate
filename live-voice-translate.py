@@ -29,39 +29,38 @@ from pathlib import Path
 # ============================================================================
 
 VENV_DIR = Path.home() / ".local/share/live-voice-translate/venv"
-REQUIRED_PACKAGES = ["faster-whisper", "argostranslate"]
+REQUIRED_PACKAGES = ["faster-whisper", "argostranslate", "webrtcvad"]
 
 def setup_virtualenv():
     """Create virtualenv and install dependencies if needed"""
     venv_python = VENV_DIR / "bin" / "python"
-    
-    # Check if we're already running in the venv
-    current_python = Path(sys.executable).resolve()
-    
+    pip = VENV_DIR / "bin" / "pip"
+
+    # Reliable venv detection: sys.prefix points to the venv root when activated.
+    # Comparing executable paths is wrong on systems where the venv Python is a
+    # symlink to the system Python (e.g. Fedora), which makes both paths identical
+    # even though site-packages are different.
+    in_venv = Path(sys.prefix).resolve() == VENV_DIR.resolve()
+
     if VENV_DIR.exists():
-        venv_python_resolved = venv_python.resolve()
-        
-        # Already in venv, verify packages are installed
-        if current_python == venv_python_resolved:
-            # Check if all packages are available
+        if in_venv:
+            # Already running inside the venv — verify all packages are present
             missing = []
             for pkg in REQUIRED_PACKAGES:
-                pkg_import = pkg.replace("-", "_")  # faster-whisper → faster_whisper
                 try:
                     result = subprocess.run(
-                        [sys.executable, "-c", f"import {pkg_import}"],
+                        [str(pip), "show", pkg],
                         capture_output=True,
-                        timeout=5
+                        timeout=10
                     )
                     if result.returncode != 0:
                         missing.append(pkg)
                 except Exception:
                     missing.append(pkg)
-            
+
             # Install missing packages
             if missing:
                 print(f"\n⚠️  Installing missing packages: {', '.join(missing)}\n")
-                pip = VENV_DIR / "bin" / "pip"
                 for pkg in missing:
                     print(f"  Installing {pkg}...", flush=True)
                     try:
@@ -70,11 +69,11 @@ def setup_virtualenv():
                     except subprocess.CalledProcessError as e:
                         print(f"  ❌ Failed to install {pkg}: {e}\n", flush=True)
                         sys.exit(1)
-            
+
             # All packages present, continue normally
             return
-        
-        # Not in venv but venv exists, re-execute
+
+        # Venv exists but we're not inside it — re-execute with venv Python
         print(f"🔄 Switching to virtualenv Python...\n", flush=True)
         os.execv(str(venv_python), [str(venv_python)] + sys.argv)
     
@@ -132,6 +131,7 @@ setup_virtualenv()
 # ============================================================================
 
 import argparse
+import collections
 import wave
 import io
 import re
@@ -150,6 +150,20 @@ sys.stdout.reconfigure(encoding='utf-8')
 # Suppress warnings
 import warnings
 warnings.filterwarnings("ignore")
+
+# webrtcvad depends on pkg_resources which was removed in setuptools>=81
+# Inject a minimal mock if it's missing so the import succeeds
+try:
+    import pkg_resources  # noqa: F401
+except ImportError:
+    import types as _types
+    _mock = _types.ModuleType("pkg_resources")
+    _mock.get_distribution = lambda *a, **kw: None  # type: ignore[attr-defined]
+    sys.modules["pkg_resources"] = _mock
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    import webrtcvad
 
 import argostranslate.package
 import argostranslate.translate
@@ -652,22 +666,89 @@ class LiveTranslator:
             print(f"Warning: Could not install translation model: {e}")
     
     def _audio_capture_loop(self, stream_id):
-        """Background thread for continuous audio capture"""
-        while not self.should_quit:
-            try:
-                audio_data = AudioCapture.capture_audio(stream_id, self.config["segment"])
-                
-                # Try to add to queue (non-blocking)
+        """Background thread: continuous audio capture with VAD-based segmentation"""
+        SAMPLE_RATE = 16000
+        FRAME_MS = 30                                     # 30 ms per VAD frame
+        FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000   # 480 samples
+        FRAME_BYTES = FRAME_SAMPLES * 2                   # 960 bytes (16-bit mono)
+
+        SILENCE_FRAMES = 800 // FRAME_MS    # ~27 frames = 800 ms silence → end of utterance
+        PRE_PADDING_FRAMES = 300 // FRAME_MS  # ~10 frames kept before speech starts
+        MIN_SPEECH_FRAMES = 500 // FRAME_MS   # ~17 frames = 500 ms minimum utterance
+        MAX_SPEECH_FRAMES = 15000 // FRAME_MS # 500 frames = 15 s maximum utterance
+
+        vad = webrtcvad.Vad(2)  # aggressiveness 0 (permissive) → 3 (aggressive)
+
+        cmd = [
+            "parec",
+            f"--monitor-stream={stream_id}",
+            "--format=s16le",
+            f"--rate={SAMPLE_RATE}",
+            "--channels=1",
+        ]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+        ring_buffer = collections.deque(maxlen=PRE_PADDING_FRAMES)
+        voiced_frames = []
+        in_speech = False
+        silence_count = 0
+
+        try:
+            while not self.should_quit:
+                frame = proc.stdout.read(FRAME_BYTES)
+                if not frame or len(frame) < FRAME_BYTES:
+                    break
+
+                if self.paused:
+                    in_speech = False
+                    voiced_frames = []
+                    ring_buffer.clear()
+                    silence_count = 0
+                    continue
+
                 try:
-                    self.audio_queue.put(audio_data, timeout=0.5)
-                except queue.Full:
-                    # Queue full, segment dropped (CPU too slow for this model)
-                    self.dropped_count += 1
-                    
-            except Exception as e:
-                if not self.should_quit:
-                    print(f"\n⚠️  Audio capture error: {e}", flush=True)
-                break
+                    is_speech = vad.is_speech(frame, SAMPLE_RATE)
+                except Exception:
+                    is_speech = False
+
+                if not in_speech:
+                    ring_buffer.append(frame)
+                    if is_speech:
+                        in_speech = True
+                        voiced_frames = list(ring_buffer)
+                        silence_count = 0
+                else:
+                    voiced_frames.append(frame)
+                    if not is_speech:
+                        silence_count += 1
+                        if silence_count >= SILENCE_FRAMES:
+                            # End of utterance — flush to queue
+                            if len(voiced_frames) >= MIN_SPEECH_FRAMES:
+                                audio_data = b"".join(voiced_frames)
+                                try:
+                                    self.audio_queue.put(audio_data, timeout=0.5)
+                                except queue.Full:
+                                    self.dropped_count += 1
+                            in_speech = False
+                            voiced_frames = []
+                            ring_buffer.clear()
+                            silence_count = 0
+                    else:
+                        silence_count = 0
+                        # Safety flush if utterance is too long (Whisper limit)
+                        if len(voiced_frames) >= MAX_SPEECH_FRAMES:
+                            audio_data = b"".join(voiced_frames)
+                            try:
+                                self.audio_queue.put(audio_data, timeout=0.5)
+                            except queue.Full:
+                                self.dropped_count += 1
+                            voiced_frames = []
+        except Exception as e:
+            if not self.should_quit:
+                print(f"\n⚠️  Audio capture error: {e}", flush=True)
+        finally:
+            proc.terminate()
+            proc.wait()
     
     def process_audio(self, audio_data):
         """Transcribe and translate audio segment (with pause support)"""
@@ -675,8 +756,8 @@ class LiveTranslator:
         if self.paused:
             return
         
-        # Skip very short audio
-        if len(audio_data) < 50000:
+        # Skip very short audio (< 300 ms)
+        if len(audio_data) < 9600:
             return
         
         # Create WAV buffer

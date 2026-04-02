@@ -59,20 +59,29 @@ def detect_distro():
 def find_compatible_python():
     """Return path to a Python >= MIN_PYTHON executable, or None."""
     import shutil
-    candidates = [f"python3.{minor}" for minor in range(13, 8, -1)]
-    for name in candidates:
+    names = [f"python3.{minor}" for minor in range(13, 8, -1)]
+    # shutil.which can silently fail on Python 3.6 — also probe common prefixes directly
+    search_prefixes = ["/usr/bin", "/usr/local/bin", "/opt/homebrew/bin"]
+    candidates = []
+    for name in names:
         path = shutil.which(name)
-        if path:
-            try:
-                result = subprocess.run(
-                    [path, "-c",
-                     f"import sys; sys.exit(0 if sys.version_info >= {MIN_PYTHON} else 1)"],
-                    capture_output=True, timeout=5
-                )
-                if result.returncode == 0:
-                    return path
-            except Exception:
-                continue
+        if path and path not in candidates:
+            candidates.append(path)
+        for prefix in search_prefixes:
+            full = f"{prefix}/{name}"
+            if full not in candidates and os.path.isfile(full) and os.access(full, os.X_OK):
+                candidates.append(full)
+    for path in candidates:
+        try:
+            result = subprocess.run(
+                [path, "-c",
+                 f"import sys; sys.exit(0 if sys.version_info >= {MIN_PYTHON} else 1)"],
+                capture_output=True, timeout=5
+            )
+            if result.returncode == 0:
+                return path
+        except Exception:
+            continue
     return None
 
 
@@ -116,6 +125,26 @@ def check_python_version():
     sys.exit(1)
 
 
+def webrtcvad_devel_hint():
+    """Print distro-specific install hint for Python development headers."""
+    distro = detect_distro()
+    ver = f"{sys.version_info.major}{sys.version_info.minor}"  # e.g. "311"
+    print("   webrtcvad requires Python development headers.")
+    print("   Install them for your distro, then delete the venv and re-run:")
+    print(f"     rm -rf {VENV_DIR}")
+    if distro == "fedora":
+        print(f"     sudo dnf install python3-devel")
+    elif distro == "opensuse":
+        print(f"     sudo zypper install python{ver}-devel")
+    elif distro == "debian":
+        print(f"     sudo apt install python3-dev")
+    else:
+        print(f"     Fedora/RHEL:   sudo dnf install python3-devel")
+        print(f"     openSUSE:      sudo zypper install python{ver}-devel")
+        print(f"     Ubuntu/Debian: sudo apt install python3-dev")
+    print()
+
+
 def setup_virtualenv():
     """Create virtualenv and install dependencies if needed"""
     venv_python = VENV_DIR / "bin" / "python"
@@ -154,11 +183,7 @@ def setup_virtualenv():
                     except subprocess.CalledProcessError as e:
                         print(f"  ❌ Failed to install {pkg}: {e}\n", flush=True)
                         if pkg == "webrtcvad":
-                            print("   webrtcvad requires Python development headers.")
-                            print("   Install them for your distro, then re-run:")
-                            print("     Fedora/RHEL:  sudo dnf install python3-devel")
-                            print("     openSUSE:     sudo zypper install python3-devel")
-                            print("     Debian/Ubuntu: sudo apt install python3-dev\n")
+                            webrtcvad_devel_hint()
                         sys.exit(1)
 
             # All packages present, continue normally
@@ -207,11 +232,7 @@ def setup_virtualenv():
         except subprocess.CalledProcessError as e:
             print(f"  ❌ Failed to install {pkg}: {e}\n", flush=True)
             if pkg == "webrtcvad":
-                print("   webrtcvad requires Python development headers.")
-                print("   Install them for your distro, then re-run:")
-                print("     Fedora/RHEL:  sudo dnf install python3-devel")
-                print("     openSUSE:     sudo zypper install python3-devel")
-                print("     Debian/Ubuntu: sudo apt install python3-dev\n")
+                webrtcvad_devel_hint()
             sys.exit(1)
 
     print("\n✅ Setup complete!")

@@ -88,9 +88,6 @@ sudo apt install python3-venv python3-dev pulseaudio-utils
 git clone https://github.com/stephdl/live-voice-translate.git
 cd live-voice-translate
 
-# Make executable
-chmod +x lvt.py
-
 # Run (first run auto-installs Python dependencies)
 ./lvt.py
 ```

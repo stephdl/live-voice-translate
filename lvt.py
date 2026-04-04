@@ -738,6 +738,10 @@ class LiveTranslator:
         # Rolling context passed to Whisper as initial_prompt (last ~200 chars of Italian)
         self._whisper_context = ""
 
+        # Sentence accumulation buffer: holds fragments until a complete sentence is ready
+        self._sentence_buffer = ""
+        self._sentence_buffer_time = None  # time when buffer was last updated
+
         # Session statistics
         self.session_start = datetime.now()
         self.phrase_count = 0
@@ -897,6 +901,14 @@ class LiveTranslator:
         # Check if paused
         if self.paused:
             return
+
+        # Flush sentence buffer if it has been waiting too long (1.5s timeout)
+        if self._sentence_buffer and self._sentence_buffer_time is not None:
+            if time.time() - self._sentence_buffer_time > 1.5:
+                clean = re.sub(r'\s*\.\.\.\s*', ' ', self._sentence_buffer).strip()
+                self._translate_and_display(clean, skip_italian=True)
+                self._sentence_buffer = ""
+                self._sentence_buffer_time = None
         
         # Skip very short audio (< 300 ms)
         if len(audio_data) < 9600:
@@ -949,11 +961,21 @@ class LiveTranslator:
                         time.sleep(0.02)
                     print("\033[0m", flush=True)
 
-                # Translate at sentence level (word-by-word translation degrades quality)
-                for sentence in re.split(r'(?<=[.!?])\s+', text_it):
-                    sentence = sentence.strip()
-                    if len(sentence) > 5:
-                        self._translate_and_display(sentence, skip_italian=True)
+                # Accumulate fragments and only translate complete sentences
+                for part in re.split(r'(?<=[.!?])\s+', text_it):
+                    part = part.strip()
+                    if not part or len(part) <= 5:
+                        continue
+                    self._sentence_buffer = (self._sentence_buffer + " " + part).strip() if self._sentence_buffer else part
+                    self._sentence_buffer_time = time.time()
+                    # Flush when the accumulated buffer ends with terminal punctuation (not ellipsis)
+                    ends_sentence = bool(re.search(r'[.!?]\s*$', self._sentence_buffer)) and not self._sentence_buffer.rstrip().endswith('...')
+                    too_long = len(self._sentence_buffer) > 200
+                    if ends_sentence or too_long:
+                        clean = re.sub(r'\s*\.\.\.\s*', ' ', self._sentence_buffer).strip()
+                        self._translate_and_display(clean, skip_italian=True)
+                        self._sentence_buffer = ""
+                        self._sentence_buffer_time = None
 
         # Update rolling context for next chunk (keep last ~200 chars)
         if chunk_italian:

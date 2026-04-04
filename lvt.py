@@ -619,29 +619,29 @@ class ModelConfig:
     # beam               : Whisper beam search width (higher = better quality, slower)
     CONFIGS = {
         "tiny": {
-            "fast":   {"beam": 1, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "60%"},
-            "normal": {"beam": 1, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "60%"},
-            "slow":   {"beam": 1, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "60%"},
+            "fast":   {"beam": 1, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 2000, "precision": "60%"},
+            "normal": {"beam": 1, "vad_silence_ms": 900,  "vad_aggressiveness": 2, "max_speech_ms": 4000, "precision": "60%"},
+            "slow":   {"beam": 1, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 8000, "precision": "60%"},
         },
         "base": {
-            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "85%"},
-            "normal": {"beam": 3, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "85%"},
-            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "85%"},
+            "fast":   {"beam": 1, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 2000, "precision": "85%"},
+            "normal": {"beam": 2, "vad_silence_ms": 900,  "vad_aggressiveness": 2, "max_speech_ms": 4000, "precision": "85%"},
+            "slow":   {"beam": 3, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 8000, "precision": "85%"},
         },
         "small": {
-            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "90%"},
-            "normal": {"beam": 3, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "90%"},
-            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "90%"},
+            "fast":   {"beam": 1, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 2000, "precision": "90%"},
+            "normal": {"beam": 2, "vad_silence_ms": 900,  "vad_aggressiveness": 2, "max_speech_ms": 4000, "precision": "90%"},
+            "slow":   {"beam": 3, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 8000, "precision": "90%"},
         },
         "medium": {
-            "fast":   {"beam": 3, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "95%"},
-            "normal": {"beam": 4, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "95%"},
-            "slow":   {"beam": 5, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "95%"},
+            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 2000, "precision": "95%"},
+            "normal": {"beam": 3, "vad_silence_ms": 900,  "vad_aggressiveness": 2, "max_speech_ms": 4000, "precision": "95%"},
+            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 8000, "precision": "95%"},
         },
         "large-v3": {
-            "fast":   {"beam": 3, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 6000,  "precision": "98%"},
-            "normal": {"beam": 5, "vad_silence_ms": 800,  "vad_aggressiveness": 2, "max_speech_ms": 8000,  "precision": "98%"},
-            "slow":   {"beam": 5, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 12000, "precision": "98%"},
+            "fast":   {"beam": 2, "vad_silence_ms": 500,  "vad_aggressiveness": 3, "max_speech_ms": 2000, "precision": "98%"},
+            "normal": {"beam": 3, "vad_silence_ms": 900,  "vad_aggressiveness": 2, "max_speech_ms": 4000, "precision": "98%"},
+            "slow":   {"beam": 4, "vad_silence_ms": 1200, "vad_aggressiveness": 1, "max_speech_ms": 8000, "precision": "98%"},
         },
     }
 
@@ -881,7 +881,9 @@ class LiveTranslator:
                                 self.audio_queue.put(audio_data, timeout=0.5)
                             except queue.Full:
                                 self.dropped_count += 1
-                            voiced_frames = []
+                            # Keep last 500ms as overlap to avoid cutting words at chunk boundary
+                            overlap_frames = 500 // FRAME_MS
+                            voiced_frames = list(voiced_frames[-overlap_frames:])
         except Exception as e:
             if not self.should_quit:
                 print(f"\n⚠️  Audio capture error: {e}", flush=True)
@@ -915,6 +917,7 @@ class LiveTranslator:
         # Transcribe with Whisper
         # initial_prompt feeds the last ~200 chars of Italian to give Whisper
         # context across VAD chunks: better capitalisation, punctuation, continuity
+        # word_timestamps=True lets us stream Italian words as they are decoded
         segments, _ = self.model.transcribe(
             self._tmp_wav.name,
             language="it",
@@ -922,6 +925,7 @@ class LiveTranslator:
             beam_size=self.config["beam"],
             condition_on_previous_text=False,
             initial_prompt=self._whisper_context or None,
+            word_timestamps=True,
         )
 
         # Translate and display
@@ -931,20 +935,30 @@ class LiveTranslator:
             text_it = segment.text.strip()
             if text_it and len(text_it) > 3:
                 chunk_italian.append(text_it)
+                if not separator_printed:
+                    print("─" * 50, flush=True)
+                    separator_printed = True
+
+                # Stream Italian words one by one (no delay — display is already post-inference)
+                if self.show_italian and segment.words:
+                    timestamp = datetime.now().strftime('%H:%M:%S')
+                    print(f"\033[92m[{timestamp}]", end=" ", flush=True)
+                    for word_info in segment.words:
+                        print(word_info.word, end="", flush=True)
+                    print("\033[0m", flush=True)
+
+                # Translate at sentence level (word-by-word translation degrades quality)
                 for sentence in re.split(r'(?<=[.!?])\s+', text_it):
                     sentence = sentence.strip()
                     if len(sentence) > 5:
-                        if not separator_printed:
-                            print("─" * 50, flush=True)
-                            separator_printed = True
-                        self._translate_and_display(sentence)
+                        self._translate_and_display(sentence, skip_italian=True)
 
         # Update rolling context for next chunk (keep last ~200 chars)
         if chunk_italian:
             combined = " ".join(chunk_italian)
             self._whisper_context = (self._whisper_context + " " + combined)[-200:].lstrip()
     
-    def _translate_and_display(self, text_it):
+    def _translate_and_display(self, text_it, skip_italian=False):
         """Translate Italian text and display/save"""
         # Step 1: it → en (always needed)
         text_en = argostranslate.translate.translate(text_it, "it", "en")
@@ -959,8 +973,8 @@ class LiveTranslator:
         timestamp = datetime.now().strftime('%H:%M:%S')
         flag = LANG_FLAGS.get(self.target_lang, "🇬🇧")
 
-        # Display Italian if enabled
-        if self.show_italian:
+        # Display Italian if enabled and not already streamed word by word
+        if self.show_italian and not skip_italian:
             if len(text_it) > 70:
                 output_it = textwrap.fill(
                     text_it, width=70,
@@ -980,7 +994,6 @@ class LiveTranslator:
             )
         else:
             output = f"[{timestamp}] ▶ {text_target}"
-
         print(output, flush=True)
 
         # Update session stats

@@ -256,6 +256,7 @@ import io
 import re
 import tempfile
 import textwrap
+import time
 from datetime import datetime
 import select
 import termios
@@ -939,12 +940,13 @@ class LiveTranslator:
                     print("─" * 50, flush=True)
                     separator_printed = True
 
-                # Stream Italian words one by one (no delay — display is already post-inference)
+                # Stream Italian words one by one with 20ms micro-delay (typewriter effect)
                 if self.show_italian and segment.words:
                     timestamp = datetime.now().strftime('%H:%M:%S')
                     print(f"\033[92m[{timestamp}]", end=" ", flush=True)
                     for word_info in segment.words:
                         print(word_info.word, end="", flush=True)
+                        time.sleep(0.02)
                     print("\033[0m", flush=True)
 
                 # Translate at sentence level (word-by-word translation degrades quality)
@@ -985,16 +987,13 @@ class LiveTranslator:
                 output_it = f"[{timestamp}] {text_it}"
             print(f"\033[92m{output_it}\033[0m", flush=True)
 
-        # Display translated text
-        if len(text_target) > 70:
-            output = textwrap.fill(
-                text_target, width=70,
-                initial_indent=f"[{timestamp}] ▶ ",
-                subsequent_indent=" " * 13
-            )
-        else:
-            output = f"[{timestamp}] ▶ {text_target}"
-        print(output, flush=True)
+        # Display translated text word by word with 20ms micro-delay (typewriter effect)
+        words = text_target.split()
+        print(f"[{timestamp}] ▶ ", end="", flush=True)
+        for word in words:
+            print(word + " ", end="", flush=True)
+            time.sleep(0.02)
+        print(flush=True)
 
         # Update session stats
         self.phrase_count += 1
